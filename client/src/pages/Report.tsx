@@ -1,501 +1,352 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import ScoreGauge from "../components/ScoreGauge";
-import IssueCard from "../components/IssueCard";
-import { ArrowLeft, Globe, Clock, FileText, Image, Link2, Heading, Tag, AlertCircle, ExternalLink, Type, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { Button, Container, Gauge } from "../components/ui";
+import IssueCard from "../components/IssueCard";
+import EmptyState from "../components/app/EmptyState";
+import { Skeleton } from "../components/app/Skeleton";
+import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
+import { scoreClass, scoreTone } from "../lib/score";
+import { formatBytes, formatDate, formatMs } from "../lib/format";
+import { hostnameOf, type Analysis, type Severity } from "../types/api";
 
-interface AnalysisData {
-    _id: string;
-    url: string;
-    overallScore: number;
-    status: string;
-    createdAt: string;
-    loadTime: number;
-    pageSize: number;
-    wordCount: number;
-    categories: {
-        seo: number;
-        performance: number;
-        accessibility: number;
-        bestPractices: number;
-    };
-    metaData: {
-        title: string;
-        description: string;
-        canonical: string;
-        robots: string;
-        ogTitle: string;
-        ogDescription: string;
-        ogImage: string;
-        twitterCard: string;
-        viewport: string;
-        charset: string;
-    };
-    headings: {
-        h1: number;
-        h2: number;
-        h3: number;
-        h4: number;
-        h5: number;
-        h6: number;
-        h1Texts: string[];
-    };
-    links: {
-        internal: number;
-        external: number;
-        total: number;
-    };
-    images: {
-        total: number;
-        missingAlt: number;
-        withAlt: number;
-    };
-    keywords: { word: string; count: number; density: number }[];
-    issues: { severity: string; category: string; message: string; recommendation: string }[];
-}
+type Tab = "overview" | "meta" | "content" | "issues";
+const tabs: { id: Tab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "meta", label: "Meta" },
+    { id: "content", label: "Content" },
+    { id: "issues", label: "Issues" },
+];
+const severityOrder: Severity[] = ["critical", "warning", "info"];
 
 export default function Report() {
-    const { api } = useApp();
-
     const { id } = useParams();
-    const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState("overview");
-
-    const fetchAnalysis = async () => {
-        try {
-            const res = await api.get(`/api/analysis/${id}`);
-            if (res.data.success) {
-                if (res.data.analysis.status === "processing") {
-                    // Poll for completion
-                    setTimeout(fetchAnalysis, 2000);
-                    return;
-                }
-                setAnalysis(res.data.analysis);
-            } else {
-                setError("Analysis not found");
-            }
-        } catch {
-            setError("Failed to load analysis");
-        }
-        setLoading(false);
-    };
-
-    const getScoreClass = (s: number) => {
-        if (s >= 80) return "score-good";
-        if (s >= 50) return "score-medium";
-        return "score-poor";
-    };
-
-    const getScoreBgClass = (s: number) => {
-        if (s >= 80) return "score-bg-good";
-        if (s >= 50) return "score-bg-medium";
-        return "score-bg-poor";
-    };
-
-    const tabs = [
-        { id: "overview", label: "Overview" },
-        { id: "meta", label: "Meta Tags" },
-        { id: "content", label: "Content" },
-        { id: "issues", label: "Issues" },
-    ];
+    const { api } = useApp();
+    const [analysis, setAnalysis] = useState<Analysis | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [tab, setTab] = useState<Tab>("overview");
+    const panel = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        (async () => await fetchAnalysis())();
-    }, [id]);
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const load = async () => {
+            try {
+                const { data } = await api.get(`/api/analysis/${id}`);
+                if (cancelled) return;
+                if (!data.success) return setError("Analysis not found");
+                if (data.analysis.status === "processing" || data.analysis.status === "pending") {
+                    timer = setTimeout(load, 2000);
+                    return;
+                }
+                setAnalysis(data.analysis);
+            } catch {
+                if (!cancelled) setError("Could not load this report");
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [api, id]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center">
-                    <div className="size-7 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-muted-foreground text-sm">Loading report...</p>
-                </div>
-            </div>
-        );
-    }
+    // Tab swap: crossfade with a small directional hint
+    useGsap(() => {
+        if (!panel.current) return;
+        gsap.fromTo(panel.current, { autoAlpha: 0, y: prefersReducedMotion() ? 0 : 6 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "expo.out", overwrite: true });
+    }, [tab]);
 
-    if (error || !analysis) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center bg-card border border-border rounded-2xl p-10">
-                    <AlertCircle size={48} className="mx-auto text-danger mb-4" />
-                    <h2 className="text-xl font-bold text-foreground mb-2">Report Not Found</h2>
-                    <p className="text-muted-foreground text-sm mb-6">{error || "This analysis doesn't exist."}</p>
-                    <Link to="/dashboard" className="bg-primary px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-foreground inline-block" style={{ color: "var(--background)" }}>
-                        Back to Dashboard
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    const counts = useMemo(() => {
+        const c: Record<Severity, number> = { critical: 0, warning: 0, info: 0 };
+        analysis?.issues.forEach((i) => (c[i.severity] += 1));
+        return c;
+    }, [analysis]);
 
-    if (analysis.status === "failed") {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center bg-card border border-border rounded-2xl p-10">
-                    <AlertCircle size={48} className="mx-auto text-danger mb-4" />
-                    <h2 className="text-xl font-bold text-foreground mb-2">Analysis Failed</h2>
-                    <p className="text-muted-foreground text-sm mb-6">The AI model might be down. Please try again later.</p>
-                    <Link to="/analyze" className="bg-primary px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-foreground inline-block" style={{ color: "var(--background)" }}>
-                        Try Again
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    if (error) return <EmptyState title={error} action={<Button to="/dashboard">Back to dashboard</Button>} />;
+    if (!analysis) return <ReportSkeleton />;
+    if (analysis.status === "failed") return <EmptyState title="This analysis failed." description="The site may block automated browsers, or the model was unavailable." action={<Button to={`/analyze?url=${encodeURIComponent(analysis.url)}`}>Try again</Button>} />;
 
-    const criticalCount = analysis.issues.filter((i) => i.severity === "critical").length;
-    const warningCount = analysis.issues.filter((i) => i.severity === "warning").length;
-    const infoCount = analysis.issues.filter((i) => i.severity === "info").length;
+    const a = analysis;
+    const cats = [
+        ["SEO", a.categories.seo],
+        ["Performance", a.categories.performance],
+        ["Accessibility", a.categories.accessibility],
+        ["Best practices", a.categories.bestPractices],
+    ] as const;
 
     return (
-        <div className="min-h-screen pt-16 md:pt-24 bg-background">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-                {/* Back + Header */}
-                <div className="mb-8">
-                    <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
-                        <ArrowLeft size={16} />
-                        Back to Dashboard
-                    </Link>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-2xl font-medium text-foreground truncate">{new URL(analysis.url).hostname}</h1>
-                            <div className="flex items-center gap-3 mt-1">
-                                <a href={analysis.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-primary truncate flex items-center gap-1 transition-colors">
-                                    {analysis.url}
-                                    <ExternalLink size={12} />
-                                </a>
-                                <span className="text-xs text-muted-foreground">
-                                    {new Date(analysis.createdAt).toLocaleDateString()} at {new Date(analysis.createdAt).toLocaleTimeString()}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+        <Container size="wide" as="main" className="pt-24 pb-24">
+            <Link to="/history" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft size={14} /> History
+            </Link>
+
+            <header className="mt-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="min-w-0">
+                    <div className="eyebrow mb-2 text-primary-dark">Report · {formatDate(a.createdAt, { day: "numeric", month: "long", year: "numeric" })}</div>
+                    <h1 className="font-display text-display-md truncate">{hostnameOf(a.url)}</h1>
+                    <a href={a.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors truncate max-w-full">
+                        {a.url} <ArrowUpRight size={13} />
+                    </a>
                 </div>
+                <Button variant="secondary" to={`/analyze?url=${encodeURIComponent(a.url)}`} icon={<RefreshCw size={14} />}>
+                    Re-run
+                </Button>
+            </header>
 
-                {/* Score Hero */}
-                <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-6" style={{ animationDelay: "100ms" }}>
-                    <div className="flex flex-col md:flex-row items-center gap-8">
-                        {/* Overall Score */}
-                        <ScoreGauge score={analysis.overallScore} size={160} strokeWidth={12} label="Overall Score" />
-
-                        {/* Category Scores */}
-                        <div className="flex-1 w-full">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                {[
-                                    { label: "SEO", value: analysis.categories.seo, icon: <Search size={18} /> },
-                                    { label: "Performance", value: analysis.categories.performance, icon: <Clock size={18} /> },
-                                    { label: "Accessibility", value: analysis.categories.accessibility, icon: <Globe size={18} /> },
-                                    { label: "Best Practices", value: analysis.categories.bestPractices, icon: <Tag size={18} /> },
-                                ].map((cat) => (
-                                    <div key={cat.label} className={`rounded-xl p-4 border text-center ${getScoreBgClass(cat.value)}`}>
-                                        <div className="flex items-center justify-center gap-1.5 mb-2 text-muted-foreground/80">
-                                            {cat.icon}
-                                            <span className="text-xs font-medium">{cat.label}</span>
-                                        </div>
-                                        <p className={`text-2xl font-bold ${getScoreClass(cat.value)}`}>{cat.value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Quick Stats */}
-                            <div className="grid grid-cols-3 gap-3 mt-4">
-                                <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-                                    <p className="text-lg font-bold text-primary">{analysis.loadTime}ms</p>
-                                    <p className="text-[10px] text-muted-foreground">Load Time</p>
-                                </div>
-                                <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-                                    <p className="text-lg font-bold text-secondary">{Math.round(analysis.pageSize / 1024)}KB</p>
-                                    <p className="text-[10px] text-muted-foreground">Page Size</p>
-                                </div>
-                                <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-                                    <p className="text-lg font-bold text-accent">{analysis.wordCount.toLocaleString()}</p>
-                                    <p className="text-[10px] text-muted-foreground">Words</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            {/* Score strip */}
+            <section className="mt-8 card p-6 md:p-8 grid gap-10 md:grid-cols-12">
+                <div className="md:col-span-3 flex items-center gap-6">
+                    <Gauge value={a.overallScore} size={150} stroke={12} label="Overall" trigger="mount" />
                 </div>
-
-                {/* Tabs */}
-                <div className="flex gap-1 mb-6 overflow-x-auto pb-1" style={{ animationDelay: "200ms" }}>
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}
-                            style={activeTab === tab.id ? { color: "var(--background)" } : {}}
-                        >
-                            {tab.label}
-                            {tab.id === "issues" && analysis.issues.length > 0 && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-danger/20 text-danger">{analysis.issues.length}</span>}
-                        </button>
+                <Bars items={cats} className="md:col-span-6" />
+                <dl className="md:col-span-3 grid grid-cols-3 md:grid-cols-1 gap-4 md:border-l md:border-border md:pl-8">
+                    {[
+                        ["Load time", formatMs(a.loadTime)],
+                        ["Page size", formatBytes(a.pageSize)],
+                        ["Words", a.wordCount.toLocaleString()],
+                    ].map(([k, v]) => (
+                        <div key={k}>
+                            <dt className="eyebrow">{k}</dt>
+                            <dd className="font-heavy text-display-sm mt-1 tracking-tight">{v}</dd>
+                        </div>
                     ))}
+                </dl>
+            </section>
+
+            {/* Tabs */}
+            <div role="tablist" className="mt-8 inline-flex h-10 p-1 rounded-full bg-muted overflow-x-auto max-w-full">
+                {tabs.map((t) => (
+                    <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`relative px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 ${tab === t.id ? "bg-card text-primary-dark shadow-card" : "text-muted-foreground hover:text-foreground"}`}>
+                        {t.label}
+                        {t.id === "issues" && <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">{a.issues.length}</span>}
+                        
+                    </button>
+                ))}
+            </div>
+
+            <div ref={panel} className="mt-6 card p-6 md:p-8">
+                {tab === "overview" && <Overview a={a} counts={counts} onSeeAll={() => setTab("issues")} />}
+                {tab === "meta" && <Meta a={a} />}
+                {tab === "content" && <Content a={a} />}
+                {tab === "issues" && <Issues a={a} counts={counts} />}
+            </div>
+        </Container>
+    );
+}
+
+function Bars({ items, className = "" }: { items: readonly (readonly [string, number])[]; className?: string }) {
+    const ref = useRef<HTMLDivElement>(null);
+    useGsap(() => {
+        if (!ref.current) return;
+        gsap.from(ref.current.querySelectorAll("[data-fill]"), { scaleX: 0, transformOrigin: "left center", duration: prefersReducedMotion() ? 0.01 : 1.1, ease: "expo.out", stagger: 0.07 });
+    }, []);
+    return (
+        <div ref={ref} className={`space-y-5 self-center ${className}`}>
+            {items.map(([name, v]) => (
+                <div key={name} className="grid grid-cols-[8.5rem_1fr_2.5rem] items-center gap-4 text-sm">
+                    <span className="text-muted-foreground">{name}</span>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div data-fill className="h-full rounded-full" style={{ width: `${v}%`, background: scoreTone(v) }} />
+                    </div>
+                    <span className={`tabular-nums text-right ${scoreClass(v)}`}>{v}</span>
                 </div>
+            ))}
+        </div>
+    );
+}
 
-                {/* Tab Content */}
-                <div key={activeTab}>
-                    {activeTab === "overview" && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Issues Summary */}
-                            <div className="bg-card border border-border rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                    <AlertCircle size={20} className="text-danger" />
-                                    Issues Summary
-                                </h3>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="severity-critical rounded-xl p-4 text-center">
-                                        <p className="text-2xl font-bold">{criticalCount}</p>
-                                        <p className="text-xs mt-1">Critical</p>
-                                    </div>
-                                    <div className="severity-warning rounded-xl p-4 text-center">
-                                        <p className="text-2xl font-bold">{warningCount}</p>
-                                        <p className="text-xs mt-1">Warnings</p>
-                                    </div>
-                                    <div className="severity-info rounded-xl p-4 text-center">
-                                        <p className="text-2xl font-bold">{infoCount}</p>
-                                        <p className="text-xs mt-1">Info</p>
-                                    </div>
-                                </div>
+function Section({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
+    return (
+        <section className={className}>
+            <h2 className="text-sm font-semibold mb-3">{title}</h2>
+            {children}
+        </section>
+    );
+}
 
-                                {analysis.issues.length > 0 && (
-                                    <div className="mt-4 space-y-2">
-                                        {analysis.issues.slice(0, 3).map((issue, i) => (
-                                            <IssueCard key={i} issue={issue} />
-                                        ))}
-                                        {analysis.issues.length > 3 && (
-                                            <button onClick={() => setActiveTab("issues")} className="w-full text-center text-sm text-primary hover:underline py-2">
-                                                View all {analysis.issues.length} issues →
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
+function Overview({ a, counts, onSeeAll }: { a: Analysis; counts: Record<Severity, number>; onSeeAll: () => void }) {
+    const top = [...a.issues].sort((x, y) => severityOrder.indexOf(x.severity) - severityOrder.indexOf(y.severity)).slice(0, 3);
+    return (
+        <div className="grid gap-12 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+                <Section title="Issues">
+                    <div className="grid grid-cols-3 rounded-xl bg-muted/60 divide-x divide-border">
+                        {severityOrder.map((s) => (
+                            <div key={s} className="py-4 px-5">
+                                <div className={`font-heavy text-display-sm tabular-nums tracking-tight ${s === "critical" ? "text-danger" : s === "warning" ? "text-warning" : ""}`}>{counts[s]}</div>
+                                <div className="eyebrow mt-1">{s}</div>
                             </div>
-
-                            {/* Links & Images */}
-                            <div className="space-y-6">
-                                <div className="bg-card border border-border rounded-2xl p-6">
-                                    <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                        <Link2 size={20} className="text-primary" />
-                                        Links Analysis
-                                    </h3>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-primary">{analysis.links.internal}</p>
-                                            <p className="text-xs text-gray-500">Internal</p>
-                                        </div>
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-secondary">{analysis.links.external}</p>
-                                            <p className="text-xs text-gray-500">External</p>
-                                        </div>
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-accent">{analysis.links.total}</p>
-                                            <p className="text-xs text-gray-500">Total</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-card border border-border rounded-2xl p-6">
-                                    <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                        <Image size={20} className="text-accent" />
-                                        Images Audit
-                                    </h3>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold">{analysis.images.total}</p>
-                                            <p className="text-xs text-gray-500">Total</p>
-                                        </div>
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-success">{analysis.images.withAlt}</p>
-                                            <p className="text-xs text-gray-500">With Alt</p>
-                                        </div>
-                                        <div className="glass rounded-xl p-4 text-center">
-                                            <p className={`text-2xl font-bold ${analysis.images.missingAlt > 0 ? "text-danger" : "text-success"}`}>{analysis.images.missingAlt}</p>
-                                            <p className="text-xs text-gray-500">Missing Alt</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Headings */}
-                            <div className="bg-card border border-border rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                    <Heading size={20} className="text-secondary" />
-                                    Heading Structure
-                                </h3>
-                                <div className="space-y-2">
-                                    {["h1", "h2", "h3", "h4", "h5", "h6"].map((tag) => {
-                                        const count = analysis.headings[tag as keyof typeof analysis.headings] as number;
-                                        const maxBar = Math.max(analysis.headings.h1, analysis.headings.h2, analysis.headings.h3, analysis.headings.h4, analysis.headings.h5, analysis.headings.h6, 1);
-                                        return (
-                                            <div key={tag} className="flex items-center gap-3">
-                                                <span className="text-xs font-mono text-gray-400 w-6 uppercase">{tag}</span>
-                                                <div className="flex-1 h-6 rounded-lg bg-white/5 overflow-hidden">
-                                                    <div className="h-full rounded-lg gradient-bg transition-all" style={{ width: `${(count / maxBar) * 100}%`, minWidth: count > 0 ? "20px" : "0" }} />
-                                                </div>
-                                                <span className={`text-sm font-bold w-6 text-right ${tag === "h1" && count !== 1 ? "text-danger" : ""}`}>{count}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                {analysis.headings.h1Texts.length > 0 && (
-                                    <div className="mt-4 p-3 rounded-xl bg-white/3 border border-white/5">
-                                        <p className="text-xs text-gray-500 mb-1">H1 Text:</p>
-                                        {analysis.headings.h1Texts.map((text, i) => (
-                                            <p key={i} className="text-sm text-gray-300 truncate">
-                                                {text}
-                                            </p>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Keywords */}
-                            <div className="bg-card border border-border rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                    <Type size={20} className="text-warning" />
-                                    Top Keywords
-                                </h3>
-                                {analysis.keywords.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {analysis.keywords.map((kw, i) => (
-                                            <div key={kw.word} className="flex items-center gap-3">
-                                                <span className="text-xs text-gray-500 w-4">{i + 1}</span>
-                                                <span className="flex-1 text-sm font-medium">{kw.word}</span>
-                                                <span className="text-xs text-gray-400">{kw.count}×</span>
-                                                <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                                    <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(kw.density * 10, 100)}%` }} />
-                                                </div>
-                                                <span className="text-xs text-gray-500 w-12 text-right">{kw.density}%</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500">No keyword data available.</p>
-                                )}
-                            </div>
-                        </div>
+                        ))}
+                    </div>
+                    <div className="mt-2">
+                        {top.map((i, idx) => (
+                            <IssueCard key={idx} issue={i} />
+                        ))}
+                    </div>
+                    {a.issues.length > 3 && (
+                        <Button variant="link" size="sm" onClick={onSeeAll} className="mt-4">
+                            See all {a.issues.length} issues
+                        </Button>
                     )}
-
-                    {activeTab === "meta" && (
-                        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-                                <FileText size={20} className="text-primary" />
-                                Meta Tags Analysis
-                            </h3>
-                            <div className="space-y-4">
-                                {[
-                                    { label: "Title", value: analysis.metaData.title, ideal: "50-60 characters", len: analysis.metaData.title.length },
-                                    { label: "Description", value: analysis.metaData.description, ideal: "150-160 characters", len: analysis.metaData.description.length },
-                                    { label: "Canonical URL", value: analysis.metaData.canonical },
-                                    { label: "Robots", value: analysis.metaData.robots },
-                                    { label: "Viewport", value: analysis.metaData.viewport },
-                                    { label: "Charset", value: analysis.metaData.charset },
-                                    { label: "OG Title", value: analysis.metaData.ogTitle },
-                                    { label: "OG Description", value: analysis.metaData.ogDescription },
-                                    { label: "OG Image", value: analysis.metaData.ogImage },
-                                    { label: "Twitter Card", value: analysis.metaData.twitterCard },
-                                ].map((meta) => (
-                                    <div key={meta.label} className="bg-muted/50 border border-border rounded-xl p-4">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-medium text-foreground">{meta.label}</span>
-                                            <div className="flex items-center gap-2">
-                                                {meta.len !== undefined && <span className="text-xs text-muted-foreground">{meta.len} chars</span>}
-                                                {meta.value ? <span className="w-2 h-2 rounded-full bg-success" /> : <span className="w-2 h-2 rounded-full bg-danger" />}
-                                            </div>
-                                        </div>
-                                        {meta.value ? <p className="text-sm text-muted-foreground break-all">{meta.value}</p> : <p className="text-sm text-danger/60 italic">Missing</p>}
-                                        {meta.ideal && <p className="text-[10px] text-gray-600 mt-1">Ideal: {meta.ideal}</p>}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "content" && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-card border border-border rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold text-foreground mb-4">Content Stats</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Word Count</span>
-                                        <span className="font-bold text-foreground">{analysis.wordCount.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Page Size</span>
-                                        <span className="font-bold text-foreground">{Math.round(analysis.pageSize / 1024)} KB</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Load Time</span>
-                                        <span className={`font-bold ${analysis.loadTime < 3000 ? "score-good" : analysis.loadTime < 5000 ? "score-medium" : "score-poor"}`}>{(analysis.loadTime / 1000).toFixed(2)}s</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Total Links</span>
-                                        <span className="font-bold text-foreground">{analysis.links.total}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Total Images</span>
-                                        <span className="font-bold text-foreground">{analysis.images.total}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3 bg-muted/50 border border-border rounded-xl">
-                                        <span className="text-sm text-muted-foreground">Total Headings</span>
-                                        <span className="font-bold text-foreground">{analysis.headings.h1 + analysis.headings.h2 + analysis.headings.h3 + analysis.headings.h4 + analysis.headings.h5 + analysis.headings.h6}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-card border border-border rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold text-foreground mb-4">Heading Hierarchy</h3>
-                                <div className="space-y-2">
-                                    {["h1", "h2", "h3", "h4", "h5", "h6"].map((tag, i) => {
-                                        const count = analysis.headings[tag as keyof typeof analysis.headings] as number;
-                                        return (
-                                            <div key={tag} className="flex items-center gap-3 p-2.5 bg-muted/30 border border-border rounded-lg" style={{ paddingLeft: `${i * 12 + 12}px` }}>
-                                                <span className="text-xs font-mono font-bold text-primary uppercase">&lt;{tag}&gt;</span>
-                                                <span className="text-sm text-muted-foreground flex-1">
-                                                    {count} {count === 1 ? "tag" : "tags"}
-                                                </span>
-                                                {tag === "h1" && <span className={`text-xs px-2 py-0.5 rounded-full ${count === 1 ? "score-bg-good text-success" : "score-bg-poor text-danger"}`}>{count === 1 ? "✓ Good" : count === 0 ? "✗ Missing" : "✗ Multiple"}</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === "issues" && (
-                        <div>
-                            {analysis.issues.length > 0 ? (
-                                <>
-                                    {/* Issue filters */}
-                                    <div className="flex items-center gap-3 mb-4 flex-wrap">
-                                        <span className="text-sm text-muted-foreground">Filter:</span>
-                                        <span className="severity-critical px-2.5 py-1 rounded-full text-xs font-semibold">{criticalCount} Critical</span>
-                                        <span className="severity-warning px-2.5 py-1 rounded-full text-xs font-semibold">{warningCount} Warnings</span>
-                                        <span className="severity-info px-2.5 py-1 rounded-full text-xs font-semibold">{infoCount} Info</span>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {analysis.issues.map((issue, i) => (
-                                            <IssueCard key={i} issue={issue} />
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="bg-card border border-border rounded-2xl p-12 text-center">
-                                    <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
-                                        <AlertCircle size={32} className="text-success" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-2">No Issues Found!</h3>
-                                    <p className="text-sm text-muted-foreground">Your website is following SEO best practices.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                </Section>
+            </div>
+            <div className="lg:col-span-5 space-y-12">
+                <Section title="Links">
+                    <Facts rows={[["Internal", a.links.internal], ["External", a.links.external], ["Broken", a.links.broken, a.links.broken > 0 ? "text-danger" : ""], ["Total", a.links.total]]} />
+                </Section>
+                <Section title="Images">
+                    <Facts rows={[["Total", a.images.total], ["With alt", a.images.withAlt], ["Missing alt", a.images.missingAlt, a.images.missingAlt > 0 ? "text-warning" : ""]]} />
+                </Section>
+                <Section title="Top keywords">
+                    <Keywords a={a} limit={6} />
+                </Section>
             </div>
         </div>
+    );
+}
+
+function Facts({ rows }: { rows: (readonly [string, string | number, string?])[] }) {
+    return (
+        <dl className="divide-y divide-border">
+            {rows.map(([k, v, cls]) => (
+                <div key={k} className="flex items-baseline justify-between py-3 text-sm">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className={`tabular-nums ${cls ?? ""}`}>{v}</dd>
+                </div>
+            ))}
+        </dl>
+    );
+}
+
+function Keywords({ a, limit }: { a: Analysis; limit?: number }) {
+    const list = limit ? a.keywords.slice(0, limit) : a.keywords;
+    const max = Math.max(1, ...list.map((k) => k.count));
+    if (!list.length) return <p className="text-sm text-muted-foreground">No keywords extracted.</p>;
+    return (
+        <ul className="divide-y divide-border">
+            {list.map((k) => (
+                <li key={k.word} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 py-2.5 text-sm">
+                    <span className="flex items-center gap-3 min-w-0">
+                        <span className="truncate">{k.word}</span>
+                        <span className="h-1.5 rounded-full bg-primary/70" style={{ width: `${(k.count / max) * 80}px` }} />
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{k.count}×</span>
+                    <span className="tabular-nums text-muted-foreground w-14 text-right">{k.density.toFixed(1)}%</span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function Meta({ a }: { a: Analysis }) {
+    const m = a.metaData;
+    const rows: [string, string][] = [
+        ["Title", m.title],
+        ["Description", m.description],
+        ["Canonical", m.canonical],
+        ["Robots", m.robots],
+        ["Viewport", m.viewport],
+        ["Charset", m.charset],
+        ["og:title", m.ogTitle],
+        ["og:description", m.ogDescription],
+        ["og:image", m.ogImage],
+        ["twitter:card", m.twitterCard],
+    ];
+    return (
+        <dl className="divide-y divide-border max-w-4xl">
+            {rows.map(([k, v]) => (
+                <div key={k} className="grid grid-cols-[9rem_1fr] gap-4 py-4 text-sm">
+                    <dt className="eyebrow pt-0.5">{k}</dt>
+                    <dd className={`break-words ${v ? "" : "text-danger"}`}>
+                        {v || "Missing"}
+                        {k === "Title" && v && <span className="ml-2 text-xs text-muted-foreground tabular-nums">{v.length} chars</span>}
+                        {k === "Description" && v && <span className={`ml-2 text-xs tabular-nums ${v.length > 160 ? "text-warning" : "text-muted-foreground"}`}>{v.length} chars</span>}
+                    </dd>
+                </div>
+            ))}
+        </dl>
+    );
+}
+
+function Content({ a }: { a: Analysis }) {
+    const h = a.headings;
+    const levels = (["h1", "h2", "h3", "h4", "h5", "h6"] as const).map((l) => [l.toUpperCase(), h[l]] as const);
+    const max = Math.max(1, ...levels.map(([, n]) => n));
+    return (
+        <div className="grid gap-12 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+                <Section title="Heading structure">
+                    <ul className="space-y-3">
+                        {levels.map(([l, n]) => (
+                            <li key={l} className="grid grid-cols-[2.5rem_1fr_2rem] items-center gap-3 text-sm">
+                                <span className="eyebrow">{l}</span>
+                                <span className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <span className="block h-full bg-primary/70 rounded-full" style={{ width: `${(n / max) * 100}%` }} />
+                                </span>
+                                <span className={`tabular-nums text-right ${l === "H1" && n !== 1 ? "text-warning" : ""}`}>{n}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    {h.h1Texts.length > 0 && (
+                        <div className="mt-6">
+                            <div className="eyebrow mb-2">H1 text</div>
+                            {h.h1Texts.map((t, i) => (
+                                <p key={i} className="font-semibold text-lg text-balance">
+                                    {t}
+                                </p>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+            </div>
+            <div className="lg:col-span-7">
+                <Section title={`Keywords · ${a.keywords.length}`}>
+                    <Keywords a={a} />
+                </Section>
+            </div>
+        </div>
+    );
+}
+
+function Issues({ a, counts }: { a: Analysis; counts: Record<Severity, number> }) {
+    const [filter, setFilter] = useState<Severity | "all">("all");
+    const list = [...a.issues].filter((i) => filter === "all" || i.severity === filter).sort((x, y) => severityOrder.indexOf(x.severity) - severityOrder.indexOf(y.severity));
+    return (
+        <div className="max-w-4xl">
+            <div role="tablist" aria-label="Severity" className="inline-flex h-10 p-1 rounded-full bg-muted mb-4">
+                {(["all", ...severityOrder] as const).map((s) => (
+                    <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)} className={`px-3.5 rounded-full text-sm font-medium capitalize transition-colors duration-200 ${filter === s ? "bg-card text-primary-dark shadow-card" : "text-muted-foreground hover:text-foreground"}`}>
+                        {s}
+                        {s !== "all" && <span className="ml-1.5 text-xs tabular-nums opacity-70">{counts[s]}</span>}
+                    </button>
+                ))}
+            </div>
+            {list.length ? <div>{list.map((i, idx) => <IssueCard key={`${filter}-${idx}`} issue={i} />)}</div> : <p className="text-sm text-muted-foreground py-6">Nothing here. Nice.</p>}
+        </div>
+    );
+}
+
+function ReportSkeleton() {
+    return (
+        <Container size="wide" className="pt-24 pb-24">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-12 w-72 mt-8" />
+            <Skeleton className="h-4 w-96 mt-3" />
+            <div className="mt-8 card p-8 grid md:grid-cols-12 gap-10">
+                <Skeleton className="size-[140px] rounded-full md:col-span-3" />
+                <div className="md:col-span-6 space-y-5 self-center">
+                    {[0, 1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-3 w-full" />
+                    ))}
+                </div>
+                <div className="md:col-span-3 space-y-4">
+                    {[0, 1, 2].map((i) => (
+                        <Skeleton key={i} className="h-8 w-24" />
+                    ))}
+                </div>
+            </div>
+        </Container>
     );
 }

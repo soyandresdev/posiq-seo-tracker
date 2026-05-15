@@ -1,57 +1,29 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
+import type { Issue } from "../types/api";
 
-interface Issue {
-    severity: string;
-    category: string;
-    message: string;
-    recommendation: string;
-}
-
+/** Accordion row. Height animates from its current state so rapid toggles never jump. */
 export default function IssueCard({ issue }: { issue: Issue }) {
-    const [expanded, setExpanded] = useState(false);
-
-    const severityConfig: Record<string, { icon: React.ReactNode; class: string; label: string }> = {
-        critical: {
-            icon: <AlertCircle size={16} />,
-            class: "severity-critical",
-            label: "Critical",
-        },
-        warning: {
-            icon: <AlertTriangle size={16} />,
-            class: "severity-warning",
-            label: "Warning",
-        },
-        info: {
-            icon: <Info size={16} />,
-            class: "severity-info",
-            label: "Info",
-        },
-    };
-
-    const config = severityConfig[issue.severity] || severityConfig.info;
-
+    const [open, setOpen] = useState(false);
+    const body = useRef<HTMLDivElement>(null);
+    useGsap(() => {
+        if (!body.current) return;
+        gsap.to(body.current, { height: open ? "auto" : 0, autoAlpha: open ? 1 : 0, duration: prefersReducedMotion() ? 0.01 : 0.4, ease: "power4.out", overwrite: true });
+    }, [open]);
     return (
-        <div className="glass rounded-xl overflow-hidden transition-all hover:border-primary/20 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-            <div className="flex items-start gap-3 p-4">
-                <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${config.class}`}>
-                    {config.icon}
-                    {config.label}
+        <div className="border-b border-border last:border-b-0">
+            <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full grid grid-cols-[auto_1fr_auto] items-start gap-4 py-4 px-1 text-left">
+                <span className={`severity-${issue.severity} mt-0.5 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize`}>{issue.severity}</span>
+                <span>
+                    <span className="block text-sm font-semibold">{issue.message}</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">{issue.category}</span>
                 </span>
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{issue.message}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{issue.category}</p>
-                </div>
-                <div className="text-muted-foreground shrink-0 mt-0.5">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</div>
+                <ChevronDown size={16} className={`mt-1 text-muted-foreground transition-transform duration-300 ease-out-expo ${open ? "rotate-180" : ""}`} />
+            </button>
+            <div ref={body} className="overflow-hidden h-0 opacity-0">
+                <p className="pb-5 pl-[5.5rem] pr-8 text-sm text-muted-foreground leading-relaxed text-pretty">{issue.recommendation}</p>
             </div>
-            {expanded && (
-                <div className="px-4 pb-4 border-t border-border pt-3">
-                    <div className="flex items-start gap-2">
-                        <span className="text-primary text-sm mt-0.5">💡</span>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{issue.recommendation}</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
