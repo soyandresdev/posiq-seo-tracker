@@ -1,31 +1,48 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { homeHowItWorksData } from "../../assets/assets";
+import { Check } from "lucide-react";
+import { Container, Reveal } from "../ui";
+import SectionHeader from "./SectionHeader";
+
+const steps = [
+    { title: "Paste a URL", desc: "Any public page. We normalize it, create the report and get to work in the background." },
+    { title: "We render and grade it", desc: "A cloud browser loads the page, Gemini reads the facts and returns scores, keywords and issues." },
+    { title: "Track your keywords", desc: "Add the terms you care about. Every morning we log your position, page and who sits above you." },
+];
 
 export default function HowItWorks() {
     return (
-        <section className="relative max-w-5xl md:min-h-[80vh] mx-auto px-4 py-24 overflow-hidden">
-            <div className="text-center mb-16 animate-slide-up">
-                <h2 className="text-3xl sm:text-4xl font-semibold mb-6 text-foreground">
-                    How It <span className="gradient-text">Works</span>
-                </h2>
-                <p className="text-muted-foreground max-w-xl mx-auto">Rank Pilot uses advanced browser automation and AI to simulate a real user experience and provide deep SEO insights.</p>
-            </div>
-
-            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Connecting Line (Desktop) */}
-                <div className="hidden md:block absolute top-[110px] left-[15%] right-[15%] h-px border-t border-dashed border-border pointer-events-none z-0"></div>
-
-                {homeHowItWorksData.map((step: any, i: number) => (
-                    <div key={step.num} className="relative z-10 animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                        <div className="bg-card border border-border rounded-2xl p-8 text-center h-full hover:bg-muted transition-all group/step">
-                            <div className="text-5xl font-bold text-primary/10 mb-4 group-hover/step:text-primary/20 transition-colors">{step.num}</div>
-                            <div className="size-14 rounded-xl flex items-center justify-center mx-auto mb-5 text-primary/80 border border-primary/20 bg-muted/40 group-hover/step:border-primary/40 transition-all">{step.icon}</div>
-                            <h3 className=" mb-2 text-foreground">{step.title}</h3>
-                            <p className="text-sm text-muted-foreground">{step.desc}</p>
+        <section id="how" className="py-20 md:py-28">
+            <Container>
+                <SectionHeader tag="How it works" title={<>Get started in <span className="text-primary">3 easy steps</span></>} description="Guided from the first URL to a daily report. Most of it runs on its own." />
+                <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] items-stretch">
+                    <Reveal className="card overflow-hidden bg-gradient-to-br from-primary to-[#8b7cff] p-8 text-white min-h-80 flex flex-col justify-end relative">
+                        <div className="absolute inset-x-8 top-8 card p-4 text-foreground shadow-float">
+                            <div className="eyebrow">Analyzing</div>
+                            <div className="mt-1 font-semibold">stripe.com</div>
+                            <ul className="mt-3 space-y-2 text-sm">
+                                {["Opening a cloud browser", "Rendering the page", "Gemini is scoring it"].map((s, i) => (
+                                    <li key={s} className="flex items-center gap-2">
+                                        <span className={`size-4 rounded-full grid place-items-center ${i < 2 ? "bg-primary text-white" : "border border-border"}`}>{i < 2 && <Check size={10} strokeWidth={3} />}</span>
+                                        <span className={i < 2 ? "" : "text-muted-foreground"}>{s}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
-                    </div>
-                ))}
-            </div>
+                        <p className="relative font-display text-display-sm max-w-[18ch]">From URL to a report in about thirty seconds.</p>
+                    </Reveal>
+                    <Reveal stagger={0.08} className="grid gap-4">
+                        {steps.map((s, i) => (
+                            <div key={s.title} className="card p-6 flex gap-5 relative overflow-hidden">
+                                <span aria-hidden className="absolute -top-3 right-4 font-heavy text-7xl text-foreground/[0.05] tracking-tighter">0{i + 1}</span>
+                                <span className="size-10 shrink-0 rounded-full bg-primary text-white grid place-items-center font-bold text-sm shadow-primary">0{i + 1}</span>
+                                <div>
+                                    <h3 className="font-semibold text-lg">{s.title}</h3>
+                                    <p className="mt-1 text-sm text-muted-foreground text-pretty">{s.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </Reveal>
+                </div>
+            </Container>
         </section>
     );
 }

@@ -1,52 +1,53 @@
-import { SearchIcon, ArrowRightIcon } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { HomeWave } from "../../assets/assets";
+import { useRef } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { Button, Container, Reveal } from "../ui";
+import ProductMockup from "./ProductMockup";
+import { gsap, useGsap, prefersReducedMotion } from "../../lib/gsap";
 
 export default function Hero() {
-    const [url, setUrl] = useState("");
-    const navigate = useNavigate();
+    const mock = useRef<HTMLDivElement>(null);
 
-    const handleQuickAnalyze = (e: React.SubmitEvent) => {
-        e.preventDefault();
-        navigate(`/analyze?url=${encodeURIComponent(url)}`);
-    };
+    // The product rises into place after the copy
+    useGsap(() => {
+        if (!mock.current) return;
+        const reduced = prefersReducedMotion();
+        gsap.from(mock.current, { autoAlpha: 0, y: reduced ? 0 : 60, scale: reduced ? 1 : 0.97, duration: 1.1, ease: "expo.out", delay: 0.45 });
+    }, []);
 
     return (
-        <section className="max-w-2xl mx-auto px-4 py-40 sm:py-44 min-h-screen text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/2 rounded-full text-xs text-primary mb-6 border border-primary/10">
-                <div className="relative flex items-center justify-center">
-                    <div className="absolute bg-blue-600 size-2 rounded-full animate-ping"></div>
-                    <div className="bg-blue-600 size-1.5 rounded-full"></div>
+        <section className="hero-sky relative pt-36 pb-10 md:pt-44 overflow-hidden">
+            <Container className="text-center">
+                <Reveal immediate y={10} className="inline-flex items-center gap-2 rounded-full bg-card border border-border shadow-card px-3 py-1.5 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary text-white px-2 py-0.5">
+                        <Sparkles size={11} /> New
+                    </span>
+                    Daily Google rank tracking
+                </Reveal>
+                <Reveal immediate delay={0.08} as="h1" className="mt-6 font-display text-display-xl text-balance mx-auto max-w-[18ch]">
+                    Know where you rank. Fix what holds you <span className="text-primary">back.</span>
+                </Reveal>
+                <Reveal immediate delay={0.16} as="p" className="mt-5 text-muted-foreground text-lg max-w-[52ch] mx-auto text-pretty">
+                    A real browser opens your page, Gemini grades it against 50+ factors, and every morning we check your positions on Google.
+                </Reveal>
+                <Reveal immediate delay={0.24} className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                    <Button to="/register" size="lg" icon={<ArrowRight size={16} />}>
+                        Start for free
+                    </Button>
+                    <Button to="/login" size="lg" variant="secondary">
+                        See a sample report
+                    </Button>
+                </Reveal>
+                <Reveal immediate delay={0.3} y={0} as="p" className="mt-4 text-xs text-muted-foreground">
+                    Free plan · 5 analyses a day · No credit card
+                </Reveal>
+            </Container>
+
+            <Container size="wide" className="mt-14 md:mt-20 relative">
+                <div ref={mock}>
+                    <ProductMockup />
                 </div>
-                Powered by BrowserBase & Gemini AI
-            </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-medium leading-tight mb-6 text-foreground">
-                Analyze & Boost Your <span className="gradient-text dm-serif">SEO Rankings</span>
-            </h1>
-            <p className="text-sm  text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">Get instant AI-powered SEO audits for any website. Uncover hidden issues, optimize performance, and outrank your competition.</p>
-
-            {/* URL Input Bar */}
-            <form onSubmit={handleQuickAnalyze} className="max-w-2xl mx-auto relative">
-                <div className="bg-card border border-border rounded-full px-2 py-1.5 flex items-center gap-2 animate-pulse-glow">
-                    <div className="flex items-center gap-2 flex-1 px-3">
-                        <SearchIcon size={16} className="text-muted-foreground shrink-0" />
-                        <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Enter website URL (e.g., example.com)" className="w-full bg-transparent text-foreground placeholder-muted-foreground outline-none text-sm py-2" id="hero-url-input" />
-                    </div>
-
-                    <button type="submit" className="bg-primary px-5 py-2.5 rounded-full text-primary-foreground text-sm hover:opacity-90 transition-opacity shrink-0 flex items-center gap-2" id="hero-analyze-btn" style={{ color: "var(--background)" }}>
-                        Analyze
-                        <ArrowRightIcon size={14} />
-                    </button>
-                </div>
-            </form>
-
-            <p className="text-muted-foreground text-sm mt-6 ">Free — No credit card required • 5 analyses per day</p>
-
-            {/* Animated Wave */}
-            <div className="absolute bottom-0 left-0 w-full overflow-hidden pointer-events-none -z-1">
-                <HomeWave />
-            </div>
+                <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
+            </Container>
         </section>
     );
 }

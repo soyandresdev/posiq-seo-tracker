@@ -1,58 +1,42 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { ChartNoAxesColumnIcon } from "lucide-react";
-import { homefooterLinks } from "../../assets/assets";
-import { SiX, SiInstagram, SiFacebook, SiTwitch } from "@icons-pack/react-simple-icons";
+import { Container, Logo } from "../ui";
+import { homefooterLinks } from "../../assets/content";
 
 export default function Footer() {
     return (
-        <footer className="border-t border-border py-12 bg-card text-foreground">
-            <div className="max-w-7xl mx-auto px-4">
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-12 mb-12">
-                    <div className="col-span-2">
-                        <div className="flex items-center gap-2 mb-4">
-                            <ChartNoAxesColumnIcon className="text-primary" />
-                            <span className="text-xl">Rank Pilot</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-6 w-5/6">Optimize your website for search engines with AI-powered insights and real-time tracking.</p>
-                        <div className="flex items-center gap-4">
-                            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                                <SiX size={20} />
-                            </a>
-                            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                                <SiInstagram size={20} />
-                            </a>
-                            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                                <SiFacebook size={20} />
-                            </a>
-                            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                                <SiTwitch size={20} />
-                            </a>
-                        </div>
+        <footer className="pt-12 pb-6 overflow-hidden border-t border-border bg-card">
+            <Container>
+                <div className="grid gap-10 md:grid-cols-12">
+                    <div className="md:col-span-4">
+                        <Logo />
+                        <p className="mt-4 text-sm text-muted-foreground max-w-[30ch] text-pretty">AI SEO audits and daily Google rank tracking, in one calm dashboard.</p>
                     </div>
-
-                    {homefooterLinks.map((section: any) => (
-                        <div key={section.title}>
-                            <h3 className="mb-4">{section.title}</h3>
-                            <ul className="space-y-1">
-                                {section.links.map((link: any) => (
-                                    <li key={link}>
-                                        <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                                            {link}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
-                    <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} RankPilot. All rights reserved.</p>
-                    <div className="flex items-center gap-6">
-                        <span className="text-xs text-muted-foreground">Status: All Systems Operational</span>
+                    <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-8">
+                        {homefooterLinks.map((s) => (
+                            <div key={s.title}>
+                                <div className="text-sm font-semibold mb-3">{s.title}</div>
+                                <ul className="space-y-2">
+                                    {s.links.map((l) => (
+                                        <li key={l}>
+                                            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                                {l}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
                     </div>
                 </div>
-            </div>
+                <div aria-hidden className="mt-12 -mb-[0.28em] text-center font-heavy leading-none text-[18vw] tracking-tighter text-foreground/[0.04] select-none whitespace-nowrap">
+                    RankPilot
+                </div>
+                <div className="pt-5 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>© {new Date().getFullYear()} RankPilot. All rights reserved.</span>
+                    <span className="flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-success" /> All systems operational
+                    </span>
+                </div>
+            </Container>
         </footer>
     );
 }

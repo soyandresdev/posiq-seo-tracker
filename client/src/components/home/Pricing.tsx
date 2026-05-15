@@ -1,62 +1,63 @@
-import { Link } from "react-router-dom";
-import { CheckCircle } from "lucide-react";
+import { Check } from "lucide-react";
+import { Button, Container } from "../ui";
+
+const free = ["5 analyses per day", "Full SEO report", "Keyword analysis", "Rank tracking for 3 keywords"];
+const pro = ["Unlimited analyses", "Priority processing", "Unlimited keywords", "Competitor view", "Full rank history", "Email reports"];
 
 export default function Pricing() {
     return (
-        <section className="relative md:min-h-screen flex flex-col justify-center items-center max-lg:py-24">
-            <div className="bg-dot-pattern absolute inset-0 -z-1 opacity-10"></div>
-            <div className="max-w-5xl w-full mx-auto px-4 ">
-                <div className="text-center mb-14">
-                    <h2 className="text-3xl sm:text-4xl font-semibold mb-4 text-foreground">
-                        Simple <span className="gradient-text">Pricing</span>
-                    </h2>
-                    <p className="text-muted-foreground">Start free. Upgrade when you need more.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                    {/* Free */}
-                    <div className="bg-card border border-border rounded-2xl p-8 flex flex-col">
-                        <h3 className="text-xl font-semibold mb-1 text-foreground">Free</h3>
-                        <div className="flex items-baseline gap-1 mb-6">
-                            <span className="text-4xl font-bold text-foreground">$0</span>
-                            <span className="text-muted-foreground">/month</span>
-                        </div>
-                        <ul className="space-y-3 mb-8 flex-1">
-                            {["5 analyses per day", "Full SEO report", "Keyword analysis", "Issue detection", "Export results"].map((item) => (
-                                <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <CheckCircle size={16} className="text-primary shrink-0" />
-                                    {item}
+        <section id="pricing" className="py-20 md:py-28">
+            <Container>
+                <div className="rounded-3xl bg-gradient-to-br from-primary to-[#7b6cff] p-6 md:p-12 text-white grid gap-10 lg:grid-cols-2 items-center shadow-float">
+                    <div>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                            <span className="size-1.5 rounded-full bg-white" /> Pricing
+                        </span>
+                        <h2 className="mt-5 font-display text-display-lg text-balance">
+                            Fair pricing. <span className="text-white/70">No surprises.</span>
+                        </h2>
+                        <p className="mt-4 text-white/80 max-w-[44ch] text-pretty">Start free with real limits, not a demo. Upgrade when your keywords outgrow the free plan.</p>
+                        <ul className="mt-8 space-y-2.5 text-sm">
+                            {free.map((f) => (
+                                <li key={f} className="flex items-center gap-2.5">
+                                    <span className="size-5 rounded-full bg-white/20 grid place-items-center">
+                                        <Check size={12} strokeWidth={3} />
+                                    </span>
+                                    {f}
+                                    <span className="text-white/60">· Free</span>
                                 </li>
                             ))}
                         </ul>
-                        <Link to="/register" className="block w-full py-3 rounded-xl bg-primary/10 text-secondary-foreground text-center text-sm  hover:opacity-90 transition-colors">
-                            Get Started Free
-                        </Link>
                     </div>
 
-                    {/* Pro */}
-                    <div className="relative rounded-2xl p-8 flex flex-col bg-card border border-primary/30 overflow-hidden">
-                        <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium" style={{ color: "var(--background)" }}>
-                            Popular
+                    <div className="card p-7 md:p-8 text-foreground">
+                        <div className="flex items-center justify-between">
+                            <div className="font-semibold text-lg">Pro plan</div>
+                            <span className="rounded-full bg-lavender text-primary-dark px-2.5 py-1 text-xs font-semibold">Popular</span>
                         </div>
-                        <h3 className="text-xl font-semibold mb-1 text-foreground">Pro</h3>
-                        <div className="flex items-baseline gap-1 mb-6">
-                            <span className="text-4xl font-bold text-primary">$19</span>
-                            <span className="text-muted-foreground">/month</span>
-                        </div>
-                        <ul className="space-y-3 mb-8 flex-1">
-                            {["Unlimited analyses", "Priority processing", "Competitor analysis", "Historical tracking", "API access", "Email reports"].map((item) => (
-                                <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <CheckCircle size={16} className="text-primary shrink-0" />
-                                    {item}
+                        <p className="mt-1 text-sm text-muted-foreground">For people who ship every week.</p>
+                        <ul className="mt-6 space-y-2.5 text-sm">
+                            {pro.map((f) => (
+                                <li key={f} className="flex items-center gap-2.5">
+                                    <span className="size-5 rounded-full bg-lavender text-primary-dark grid place-items-center">
+                                        <Check size={12} strokeWidth={3} />
+                                    </span>
+                                    {f}
                                 </li>
                             ))}
                         </ul>
-                        <button className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-center text-sm hover:opacity-90 transition-opacity" style={{ color: "var(--background)" }}>
-                            Upgrade to Pro
-                        </button>
+                        <div className="mt-8 flex items-end justify-between gap-4 pt-6 border-t border-border">
+                            <div>
+                                <span className="font-heavy text-4xl tracking-tight">$19</span>
+                                <span className="text-muted-foreground text-sm"> /month</span>
+                            </div>
+                            <Button to="/register" variant="dark">
+                                Upgrade to Pro
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Container>
         </section>
     );
 }
