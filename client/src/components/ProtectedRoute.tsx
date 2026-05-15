@@ -1,20 +1,12 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../context/AppContext";
+import Loading from "./Loading";
 
 export default function ProtectedRoute() {
     const { token, loading } = useApp();
+    const { pathname, search } = useLocation();
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-dark-900">
-                <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
-
-    if (!token) {
-        return <Navigate to="/login" replace />;
-    }
-
+    if (loading) return <Loading />;
+    if (!token) return <Navigate to={`/login?redirect=${encodeURIComponent(pathname + search)}`} replace />;
     return <Outlet />;
 }
