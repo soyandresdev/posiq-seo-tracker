@@ -1,148 +1,119 @@
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useTheme } from "../context/ThemeContext";
-import { Search, BarChart3, History, LogOut, Menu, X, Target, Sun, Moon, ChartNoAxesColumnIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
+import { Button, Container, Logo } from "./ui";
+import { gsap, useGsap, prefersReducedMotion, ease } from "../lib/gsap";
 
+const appLinks = [
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/analyze", label: "Analyze" },
+    { to: "/rank-tracker", label: "Rank tracker" },
+    { to: "/history", label: "History" },
+];
+const marketingLinks = [
+    { to: "/#features", label: "Features" },
+    { to: "/#how", label: "How it works" },
+    { to: "/#pricing", label: "Pricing" },
+];
+
+/** Floating pill bar. */
 export default function Navbar() {
     const { user, logout } = useApp();
-    const { theme, setTheme } = useTheme();
     const navigate = useNavigate();
-    const location = useLocation();
-    const [mobileOpen, setMobileOpen] = useState(false);
+    const [open, setOpen] = useState(false);
+    const overlay = useRef<HTMLDivElement>(null);
+    const tl = useRef<gsap.core.Timeline | null>(null);
+    const links = user ? appLinks : marketingLinks;
+
+    useGsap(() => {
+        const el = overlay.current;
+        if (!el) return;
+        tl.current = gsap
+            .timeline({ paused: true, defaults: { ease: ease.outExpo } })
+            .set(el, { pointerEvents: "auto" })
+            .fromTo(el, { autoAlpha: 0, y: -8, scale: 0.98 }, { autoAlpha: 1, y: 0, scale: 1, duration: prefersReducedMotion() ? 0.01 : 0.35 })
+            .fromTo(el.querySelectorAll("[data-menu-item]"), { autoAlpha: 0, y: prefersReducedMotion() ? 0 : 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.04 }, "<0.05");
+    }, []);
+
+    useEffect(() => {
+        const t = tl.current;
+        if (!t) return;
+        if (open) t.timeScale(1).play();
+        else t.timeScale(1.5).reverse();
+    }, [open]);
 
     const handleLogout = () => {
         logout();
         navigate("/");
     };
 
-    const isActive = (path: string) => location.pathname === path;
-
-    const navLinks = [
-        { path: "/dashboard", label: "Dashboard", icon: <BarChart3 size={18} /> },
-        { path: "/analyze", label: "Analyze", icon: <Search size={18} /> },
-        { path: "/rank-tracker", label: "Rank Tracker", icon: <Target size={18} /> },
-        { path: "/history", label: "History", icon: <History size={18} /> },
-    ];
-
     return (
-        <nav className="fixed top-0 w-full bg-background/70 backdrop-blur-lg z-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center gap-2 group">
-                        <ChartNoAxesColumnIcon />
-                        <span className="text-xl tracking-tight text-foreground">Rank Pilot</span>
-                    </Link>
+        <header className="fixed inset-x-0 top-4 z-50">
+            <Container size="wide">
+                <div className="mx-auto flex h-14 items-center justify-between rounded-full border border-white/70 bg-white/80 backdrop-blur-xl pl-4 pr-2 shadow-soft">
+                    <Logo />
 
-                    {/* Desktop nav */}
-                    {user && (
-                        <div className="hidden md:flex items-center gap-1">
-                            {navLinks.map((link) => (
-                                <Link key={link.path} to={link.path} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${isActive(link.path) ? "bg-accent/5 text-accent font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/80"}`}>
-                                    {link.icon}
-                                    {link.label}
-                                </Link>
-                            ))}
-                        </div>
-                    )}
+                    <nav className="hidden md:flex items-center gap-1 rounded-full bg-muted/70 p-1" aria-label="Primary">
+                        {links.map((l) => (
+                            <NavLink key={l.to} to={l.to} className={({ isActive }) => `px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${isActive && user ? "bg-white text-primary-dark shadow-card" : "text-muted-foreground hover:text-foreground"}`}>
+                                {l.label}
+                            </NavLink>
+                        ))}
+                    </nav>
 
-                    {/* Right side */}
-                    <div className="hidden md:flex items-center gap-3">
-                        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors flex items-center justify-center" aria-label="Toggle theme">
-                            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-
+                    <div className="hidden md:flex items-center gap-2">
                         {user ? (
                             <>
-                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-border bg-card text-sm">
-                                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold" style={{ color: "var(--background)" }}>
-                                        {user.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <span className="text-foreground font-medium">{user.name}</span>
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase bg-accent/10 border border-accent/15 text-accent">{user.plan}</span>
-                                </div>
-                                <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
-                                    <LogOut size={16} />
-                                    Logout
-                                </button>
+                                <span className="hidden lg:inline-flex items-center gap-2 pl-1 pr-3 h-9 rounded-full bg-muted text-sm font-medium">
+                                    <span className="size-7 rounded-full bg-primary text-white grid place-items-center text-xs font-bold">{user.name.charAt(0).toUpperCase()}</span>
+                                    {user.name.split(" ")[0]}
+                                </span>
+                                <Button variant="ghost" size="sm" onClick={handleLogout}>
+                                    Log out
+                                </Button>
                             </>
                         ) : (
                             <>
-                                <Link to="/login" className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    Log In
-                                </Link>
-                                <Link to="/register" className="px-5 py-2 rounded-full bg-primary text-sm transition-opacity" style={{ color: "var(--background)" }}>
-                                    Get Started
-                                </Link>
+                                <Button variant="ghost" size="sm" to="/login">
+                                    Log in
+                                </Button>
+                                <Button variant="dark" size="sm" to="/register">
+                                    Start free
+                                </Button>
                             </>
                         )}
                     </div>
 
-                    {/* Mobile toggle container */}
-                    <div className="flex items-center gap-2 md:hidden">
-                        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
-                            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-                        <button className="text-muted-foreground hover:text-foreground p-2" onClick={() => setMobileOpen(!mobileOpen)}>
-                            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-                        </button>
-                    </div>
+                    <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="mobile-menu" aria-label={open ? "Close menu" : "Open menu"} className="md:hidden relative size-10 grid place-items-center rounded-full hover:bg-muted">
+                        <span className={`absolute h-0.5 w-5 rounded bg-foreground transition-transform duration-300 ease-out-expo ${open ? "rotate-45" : "-translate-y-[3px]"}`} />
+                        <span className={`absolute h-0.5 w-5 rounded bg-foreground transition-transform duration-300 ease-out-expo ${open ? "-rotate-45" : "translate-y-[3px]"}`} />
+                    </button>
                 </div>
-            </div>
 
-            {/* Mobile menu */}
-            {mobileOpen && (
-                <div className="md:hidden border-b border-border bg-background origin-top">
-                    <div className="px-4 py-3 space-y-1">
+                <div ref={overlay} id="mobile-menu" className="md:hidden mt-2 card p-2 pointer-events-none opacity-0 origin-top" aria-hidden={!open}>
+                    {links.map((l) => (
+                        <NavLink key={l.to} to={l.to} data-menu-item onClick={() => setOpen(false)} className={({ isActive }) => `block px-4 py-3 rounded-xl font-medium ${isActive && user ? "bg-lavender text-primary-dark" : "hover:bg-muted"}`}>
+                            {l.label}
+                        </NavLink>
+                    ))}
+                    <div data-menu-item className="p-2 pt-3 flex gap-2">
                         {user ? (
-                            <>
-                                <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-muted rounded-lg">
-                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-sm font-bold" style={{ color: "var(--background)" }}>
-                                        {user.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <div className="text-sm font-semibold text-foreground">{user.name}</div>
-                                        <div className="text-xs text-muted-foreground">{user.email}</div>
-                                    </div>
-                                </div>
-                                <div className="py-2 space-y-1">
-                                    {navLinks.map((link) => (
-                                        <Link
-                                            key={link.path}
-                                            to={link.path}
-                                            onClick={() => setMobileOpen(false)}
-                                            className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all ${isActive(link.path) ? "bg-accent/10 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                                        >
-                                            {link.icon}
-                                            {link.label}
-                                        </Link>
-                                    ))}
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        handleLogout();
-                                        setMobileOpen(false);
-                                    }}
-                                    className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm text-danger hover:bg-danger/10 w-full mt-2"
-                                >
-                                    <LogOut size={18} />
-                                    Logout
-                                </button>
-                            </>
+                            <Button variant="secondary" size="sm" onClick={handleLogout} className="w-full">
+                                Log out
+                            </Button>
                         ) : (
-                            <div className="py-2 space-y-2">
-                                <Link to="/login" onClick={() => setMobileOpen(false)} className="block px-3 py-3 text-sm font-medium text-foreground text-center rounded-lg hover:bg-muted">
-                                    Log In
-                                </Link>
-                                <Link to="/register" onClick={() => setMobileOpen(false)} className="block px-3 py-3 text-sm font-semibold text-center rounded-lg bg-primary" style={{ color: "var(--background)" }}>
-                                    Get Started
-                                </Link>
-                            </div>
+                            <>
+                                <Button variant="secondary" size="sm" to="/login" className="flex-1" onClick={() => setOpen(false)}>
+                                    Log in
+                                </Button>
+                                <Button size="sm" to="/register" className="flex-1" onClick={() => setOpen(false)}>
+                                    Start free
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
-            )}
-        </nav>
+            </Container>
+        </header>
     );
 }
