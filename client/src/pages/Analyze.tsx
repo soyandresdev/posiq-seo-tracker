@@ -1,207 +1,166 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { SearchIcon, GlobeIcon, FileSearchIcon, BrainIcon, CheckCircleIcon, AlertCircle, Loader2, ArrowRightIcon } from "lucide-react";
+import axios from "axios";
+import { Check } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { Container, Button } from "../components/ui";
+import UrlForm from "../components/app/UrlForm";
+import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
+import { hostnameOf, normalizeUrl } from "../types/api";
 
 const STEPS = [
-    { icon: <GlobeIcon size={22} />, label: "Connecting to browser", desc: "Creating cloud browser session..." },
-    { icon: <FileSearchIcon size={22} />, label: "Scanning website", desc: "Extracting meta tags, links, images..." },
-    { icon: <BrainIcon size={22} />, label: "AI Analysis", desc: "Gemini is analyzing your SEO data..." },
-    { icon: <CheckCircleIcon size={22} />, label: "Report Ready", desc: "Your SEO report is complete!" },
+    { label: "Opening a cloud browser", desc: "A Browserbase session with ads blocked." },
+    { label: "Rendering the page", desc: "Reading title, meta, headings, links and images from the live DOM." },
+    { label: "Gemini is scoring it", desc: "Strict schema: scores, keywords, issues with recommendations." },
+    { label: "Report ready", desc: "Taking you there." },
 ];
+
+const POLL_MS = 2000;
+const MAX_ATTEMPTS = 60;
 
 export default function Analyze() {
     const { api } = useApp();
-
-    const [url, setUrl] = useState("");
-    const [analyzing, setAnalyzing] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0);
-    const [error, setError] = useState("");
-    const [searchParams] = useSearchParams();
-    const pollRef = useRef<any>(null);
-
     const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const prefill = params.get("url") ?? "";
 
-    const handleAnalyze = async (submitUrl?: string) => {
-        const targetUrl = submitUrl || url;
-        if (!targetUrl.trim()) return;
+    const [target, setTarget] = useState<string | null>(null);
+    const [step, setStep] = useState(0);
+    const [error, setError] = useState<string | null>(null);
+    const poll = useRef<ReturnType<typeof setInterval> | null>(null);
 
-        setError("");
-        setAnalyzing(true);
-        setCurrentStep(0);
+    const stop = () => {
+        if (poll.current) clearInterval(poll.current);
+        poll.current = null;
+    };
 
+    const start = async (raw: string) => {
+        const url = normalizeUrl(raw);
+        setError(null);
+        setTarget(url);
+        setStep(0);
         try {
-            // Step 0: Connecting
-            setCurrentStep(0);
+            const { data } = await api.post("/api/analysis/analyze", { url });
+            if (!data.success) throw new Error(data.message);
+            const id: string = data.analysisId;
+            setStep(1);
 
-            const res = await api.post("/api/analysis/analyze", {
-                url: targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`,
-            });
-
-            if (!res.data.success) {
-                throw new Error(res.data.message);
-            }
-
-            const id = res.data.analysisId;
-
-            // Step 1: Scanning
-            setCurrentStep(1);
-
-            // Poll for completion
             let attempts = 0;
-            const maxAttempts = 60; // 2 minutes max
-
-            pollRef.current = setInterval(async () => {
-                attempts++;
-                if (attempts > maxAttempts) {
-                    if (pollRef.current) clearInterval(pollRef.current);
-                    setError("Analysis is taking longer than expected. Check your history later.");
-                    setAnalyzing(false);
+            stop();
+            poll.current = setInterval(async () => {
+                attempts += 1;
+                if (attempts > MAX_ATTEMPTS) {
+                    stop();
+                    setError("This is taking longer than expected. Check History in a minute.");
+                    setTarget(null);
                     return;
                 }
-
                 try {
                     const check = await api.get(`/api/analysis/${id}`);
-                    const analysis = check.data.analysis;
-
-                    if (analysis.status === "completed") {
-                        if (pollRef.current) clearInterval(pollRef.current);
-                        setCurrentStep(3);
-                        setTimeout(() => navigate(`/report/${id}`), 1000);
-                    } else if (analysis.status === "failed") {
-                        if (pollRef.current) clearInterval(pollRef.current);
-                        setError("Analysis failed. The AI model might be down.");
-                        setAnalyzing(false);
-                    } else {
-                        // Still processing - advance visual steps
-                        if (attempts > 5) setCurrentStep(2);
+                    const status = check.data.analysis?.status;
+                    if (status === "completed") {
+                        stop();
+                        setStep(3);
+                        setTimeout(() => navigate(`/report/${id}`), 900);
+                    } else if (status === "failed") {
+                        stop();
+                        setError("The analysis failed. The site may block bots or the model was unavailable.");
+                        setTarget(null);
+                    } else if (attempts > 5) {
+                        setStep(2);
                     }
                 } catch {
-                    // Ignore polling errors
+                    /* transient polling error */
                 }
-            }, 2000);
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || "Failed to start analysis");
-            setAnalyzing(false);
+            }, POLL_MS);
+        } catch (err) {
+            const msg = axios.isAxiosError(err) ? ((err.response?.data as { message?: string })?.message ?? err.message) : err instanceof Error ? err.message : "Failed to start";
+            setError(msg);
+            setTarget(null);
         }
     };
 
-    const handleSubmit = (e: React.SubmitEvent) => {
-        e.preventDefault();
-        handleAnalyze();
-    };
-
+    // Auto-start when arriving with ?url=
     useEffect(() => {
-        const prefillUrl = searchParams.get("url");
-        if (prefillUrl) {
-            (() => setUrl(prefillUrl))();
-            // Auto-start if URL is provided
-            setTimeout(() => handleAnalyze(prefillUrl), 500);
-        }
-
+        if (!prefill) return;
+        const t = setTimeout(() => start(prefill), 250);
         return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
+            clearTimeout(t);
+            stop();
         };
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prefill]);
 
     return (
-        <div className="min-h-screen pt-16 md:pt-24 bg-background">
-            <div className="max-w-3xl mx-auto px-4 py-12">
-                {!analyzing ? (
-                    <div>
-                        <div className="text-center mb-10 mt-24">
-                            <h1 className="text-3xl sm:text-4xl font-medium text-foreground mb-3">
-                                Analyze <span className="gradient-text">Any Website</span>
-                            </h1>
-                            <p className="text-muted-foreground">Enter a URL to get a comprehensive AI-powered SEO audit report.</p>
-                        </div>
+        <Container as="main" className="pt-28 pb-24">
+            {target ? <Progress url={target} step={step} /> : <Idle initial={prefill} error={error} onSubmit={start} />}
+        </Container>
+    );
+}
 
-                        {error && (
-                            <div className="mb-6 px-4 py-3 rounded-xl severity-critical text-sm flex items-center gap-2 max-w-xl mx-auto">
-                                <AlertCircle size={18} className="shrink-0" />
-                                {error}
-                            </div>
-                        )}
+function Idle({ initial, error, onSubmit }: { initial: string; error: string | null; onSubmit: (u: string) => void }) {
+    const examples = ["stripe.com", "vercel.com", "github.com"];
+    return (
+        <div className="max-w-2xl mx-auto pt-6 md:pt-14">
+            <div className="eyebrow mb-2 text-primary-dark">Analyze</div>
+            <h1 className="font-display text-display-lg text-balance">What should we look at?</h1>
+            <p className="mt-4 text-muted-foreground max-w-[46ch] text-pretty">Any public page. A real browser renders it, Gemini scores it, you get a report in about thirty seconds.</p>
 
-                        <form onSubmit={handleSubmit} className="max-w-xl mx-auto">
-                            <div className="border border-primary/20 rounded-full p-1.5 px-2 flex items-center gap-2">
-                                <div className="flex items-center gap-3 flex-1 px-3">
-                                    <SearchIcon size={20} className="text-muted-foreground shrink-0" />
-                                    <input
-                                        type="text"
-                                        value={url}
-                                        onChange={(e) => setUrl(e.target.value)}
-                                        placeholder="Enter website URL (e.g., example.com)"
-                                        className="w-full bg-transparent text-foreground placeholder-muted-foreground outline-none text-base py-3"
-                                        id="analyze-url-input"
-                                        autoFocus
-                                    />
-                                </div>
-                                <button type="submit" className="bg-primary px-6 py-3 rounded-full flex items-center gap-2 text-primary-foreground text-sm hover:opacity-90 transition-opacity shrink-0" id="analyze-submit-btn" style={{ color: "var(--background)" }}>
-                                    Analyze <ArrowRightIcon className="text-background size-4 shrink-0" />
-                                </button>
-                            </div>
-                        </form>
+            <UrlForm key={initial} initial={initial} onSubmit={onSubmit} autoFocus size="lg" className="mt-10" />
 
-                        <div className="mt-6 text-center text-sm text-muted-foreground">
-                            Examples:{" "}
-                            {["github.com", "stripe.com", "vercel.com"].map((ex, i) => (
-                                <span key={ex}>
-                                    <button
-                                        onClick={() => {
-                                            setUrl(ex);
-                                        }}
-                                        className="text-primary hover:underline"
-                                    >
-                                        {ex}
-                                    </button>
-                                    {i < 2 ? ", " : ""}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        {/* Analyzing State */}
-                        <div className="text-center mb-12">
-                            <h2 className="text-2xl font-medium text-foreground">Analyzing Your Website</h2>
-                            <div className="flex justify-center items-center gap-2 mt-2">
-                                <Loader2 size={16} className="text-primary/60 mt-0.5 animate-spin" />
-                                <p className="text-muted-foreground sm:text-lg">{url}</p>
-                            </div>
-                        </div>
+            {error && (
+                <p role="alert" className="mt-4 text-sm text-danger">
+                    {error}
+                </p>
+            )}
 
-                        {/* Progress Steps */}
-                        <div className="max-w-md mx-auto space-y-4">
-                            {STEPS.map((step, i) => {
-                                const isComplete = i < currentStep;
-                                const isCurrent = i === currentStep;
-                                const isPending = i > currentStep;
-
-                                return (
-                                    <div key={step.label} className={`flex items-center gap-4 p-4 rounded-xl transition-all ${isCurrent ? "glass-strong border-primary/30" : isComplete ? "glass opacity-60" : "glass opacity-30"}`}>
-                                        <div
-                                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isComplete ? "bg-success/15 text-success" : isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                                            style={isCurrent ? { color: "var(--background)" } : {}}
-                                        >
-                                            {isComplete ? <CheckCircleIcon size={20} /> : step.icon}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className={`text-sm font-medium ${isPending ? "text-muted-foreground" : "text-foreground"}`}>{step.label}</p>
-                                            <p className="text-xs text-muted-foreground">{step.desc}</p>
-                                        </div>
-                                        {isCurrent && <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <p className="text-center text-xs text-muted-foreground mt-8">This may take 15-30 seconds depending on the website.</p>
-                    </div>
-                )}
+            <div className="mt-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                Try
+                {examples.map((e) => (
+                    <Button key={e} variant="secondary" size="sm" onClick={() => onSubmit(e)}>
+                        {e}
+                    </Button>
+                ))}
             </div>
+        </div>
+    );
+}
+
+function Progress({ url, step }: { url: string; step: number }) {
+    const line = useRef<HTMLDivElement>(null);
+
+    // Progress line grows to the active step. Interruptible: always from current state.
+    useGsap(() => {
+        if (!line.current) return;
+        gsap.to(line.current, { scaleY: step / (STEPS.length - 1), duration: prefersReducedMotion() ? 0.01 : 0.8, ease: "expo.out", overwrite: true });
+    }, [step]);
+
+    return (
+        <div className="max-w-2xl mx-auto pt-6 md:pt-14">
+            <div className="eyebrow mb-2 text-primary-dark">Analyzing</div>
+            <h1 className="font-display text-display-lg break-all">{hostnameOf(url)}</h1>
+            <p className="mt-3 text-muted-foreground text-sm truncate">{url}</p>
+
+            <ol className="relative mt-10 card p-6 pl-8 space-y-0">
+                <div aria-hidden className="absolute left-[33px] top-9 bottom-9 w-0.5 bg-border" />
+                <div ref={line} aria-hidden className="absolute left-[33px] top-9 bottom-9 w-0.5 bg-primary origin-top scale-y-0" />
+                {STEPS.map((s, i) => {
+                    const done = i < step;
+                    const active = i === step;
+                    return (
+                        <li key={s.label} className={`relative pl-9 py-4 transition-opacity duration-500 ${i > step ? "opacity-40" : "opacity-100"}`}>
+                            <span className={`absolute left-0 top-[26px] size-[19px] border-2 grid place-items-center transition-colors duration-300 `}>
+                                {done && <Check size={9} strokeWidth={3} />}
+                                {active && <span className="size-2 rounded-full bg-primary animate-pulse" />}
+                            </span>
+                            <div className="font-semibold">{s.label}</div>
+                            <div className="text-sm text-muted-foreground">{s.desc}</div>
+                        </li>
+                    );
+                })}
+            </ol>
+
+            <p className="mt-10 text-xs text-muted-foreground">Usually 15 to 30 seconds. You can leave; the result lands in History.</p>
         </div>
     );
 }
