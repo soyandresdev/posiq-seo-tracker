@@ -1,16 +1,18 @@
 {
     "name": "server",
-    "version": "1.0.0",
-    "description": "",
-    "main": "server.js",
-    "scripts": {
-        "start": "node server.js",
-        "server": "nodemon server.js"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "version": "2.0.0",
+    "private": true,
+    "description": "RankPilot API: SEO analysis, Google rank tracking",
     "type": "module",
+    "engines": {
+        "node": ">=22.18"
+    },
+    "scripts": {
+        "dev": "node --watch src/server.ts",
+        "start": "node src/server.ts",
+        "typecheck": "tsc --noEmit",
+        "cron:rank": "node src/cron/run.ts"
+    },
     "dependencies": {
         "@browserbasehq/sdk": "^2.11.0",
         "@google/genai": "^2.2.0",
@@ -24,6 +26,11 @@
         "playwright-core": "^1.60.0"
     },
     "devDependencies": {
-        "nodemon": "^3.1.14"
+        "@types/bcrypt": "^6.0.0",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^26.6.1",
+        "typescript": "^7.0.2"
     }
 }
