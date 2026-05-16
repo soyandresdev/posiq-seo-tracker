@@ -1,20 +1,5 @@
-  {
-    "version": 2,
-    "builds": [
-        {
-            "src": "server.js",
-            "use": "@vercel/node",
-            "config": {
-                "includeFiles": [
-                    "dist/**"
-                ]
-            }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "server.js"
-        }
-    ]
+{
+    "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+    "crons": [{ "path": "/api/cron/rank-check", "schedule": "0 6 * * *" }],
+    "functions": { "api/index.ts": { "maxDuration": 300 } }
 }
