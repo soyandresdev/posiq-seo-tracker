@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { env } from "../config/env.ts";
 import type { AiAnalysis, Check, Result, ScrapedData } from "../types/api.ts";
 
-const ai = new GoogleGenAI({ apiKey: env.geminiKey });
+export const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
 const schema = {
     type: Type.OBJECT,

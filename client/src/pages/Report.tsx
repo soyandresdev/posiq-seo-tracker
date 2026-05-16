@@ -7,6 +7,7 @@ import IssueCard from "../components/IssueCard";
 import { isQuickWin } from "../lib/issues";
 import Checklist from "../components/app/Checklist";
 import { SerpPreview, SocialPreview } from "../components/app/Previews";
+import Assistant from "../components/app/Assistant";
 import { Sparkles, Zap } from "lucide-react";
 import EmptyState from "../components/app/EmptyState";
 import { Skeleton } from "../components/app/Skeleton";
@@ -214,6 +215,8 @@ export default function Report() {
         {tab === "content" && <Content a={a} />}
         {tab === "issues" && <Issues a={a} counts={counts} />}
       </div>
+
+      <Assistant analysisId={a._id} host={hostnameOf(a.url)} />
     </Container>
   );
 }

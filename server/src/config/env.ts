@@ -21,3 +21,4 @@ export const env = {
 } as const;
 
 export const FREE_DAILY_LIMIT = 5;
+export const CHAT_LIMITS = { free: 10, pro: 200 } as const;
