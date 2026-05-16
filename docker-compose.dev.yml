@@ -1,0 +1,27 @@
+# Overrides for development: sources mounted, hot reload on both sides.
+services:
+    server:
+        build: !reset null
+        image: node:22-bookworm-slim
+        working_dir: /app
+        command: sh -c "npm install && npm run dev"
+        volumes:
+            - ./server:/app
+            - server-node-modules:/app/node_modules
+
+    client:
+        build: !reset null
+        image: node:22-bookworm-slim
+        working_dir: /app
+        command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+        environment:
+            VITE_BACKEND_URL: http://localhost:${SERVER_PORT:-5050}
+        ports: !override
+            - "5173:5173"
+        volumes:
+            - ./client:/app
+            - client-node-modules:/app/node_modules
+
+volumes:
+    server-node-modules:
+    client-node-modules:
