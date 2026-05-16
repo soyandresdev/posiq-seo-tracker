@@ -8,11 +8,13 @@ import { isQuickWin } from "../lib/issues";
 import Checklist from "../components/app/Checklist";
 import { SerpPreview, SocialPreview } from "../components/app/Previews";
 import Assistant from "../components/app/Assistant";
+import CategoryBars from "../components/charts/CategoryBars";
+import KeywordChart from "../components/charts/KeywordChart";
+import HeadingChart from "../components/charts/HeadingChart";
 import { Sparkles, Zap } from "lucide-react";
 import EmptyState from "../components/app/EmptyState";
 import { Skeleton } from "../components/app/Skeleton";
 import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
-import { scoreClass, scoreTone } from "../lib/score";
 import { formatBytes, formatDate, formatMs } from "../lib/format";
 import { hostnameOf, type Analysis, type Severity } from "../types/api";
 
@@ -105,12 +107,6 @@ export default function Report() {
     );
 
   const a = analysis;
-  const cats = [
-    ["SEO", a.categories.seo],
-    ["Performance", a.categories.performance],
-    ["Accessibility", a.categories.accessibility],
-    ["Best practices", a.categories.bestPractices],
-  ] as const;
 
   return (
     <Container size="wide" as="main" className="pt-24 pb-24">
@@ -163,7 +159,9 @@ export default function Report() {
             trigger="mount"
           />
         </div>
-        <Bars items={cats} className="md:col-span-6" />
+        <div className="md:col-span-6 self-center">
+          <CategoryBars categories={a.categories} />
+        </div>
         <dl className="md:col-span-3 grid grid-cols-3 md:grid-cols-1 gap-4 md:border-l md:border-border md:pl-8">
           {[
             ["Load time", formatMs(a.loadTime)],
@@ -218,48 +216,6 @@ export default function Report() {
 
       <Assistant analysisId={a._id} host={hostnameOf(a.url)} />
     </Container>
-  );
-}
-
-function Bars({
-  items,
-  className = "",
-}: {
-  items: readonly (readonly [string, number])[];
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useGsap(() => {
-    if (!ref.current) return;
-    gsap.from(ref.current.querySelectorAll("[data-fill]"), {
-      scaleX: 0,
-      transformOrigin: "left center",
-      duration: prefersReducedMotion() ? 0.01 : 1.1,
-      ease: "expo.out",
-      stagger: 0.07,
-    });
-  }, []);
-  return (
-    <div ref={ref} className={`space-y-5 self-center ${className}`}>
-      {items.map(([name, v]) => (
-        <div
-          key={name}
-          className="grid grid-cols-[8.5rem_1fr_2.5rem] items-center gap-4 text-sm"
-        >
-          <span className="text-muted-foreground">{name}</span>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              data-fill
-              className="h-full rounded-full"
-              style={{ width: `${v}%`, background: scoreTone(v) }}
-            />
-          </div>
-          <span className={`tabular-nums text-right ${scoreClass(v)}`}>
-            {v}
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -411,7 +367,7 @@ function Overview({
           />
         </Section>
         <Section title="Top keywords">
-          <Keywords a={a} limit={6} />
+          <KeywordChart keywords={a.keywords} limit={6} height={180} />
         </Section>
       </div>
     </div>
@@ -526,35 +482,11 @@ function Meta({ a }: { a: Analysis }) {
 
 function Content({ a }: { a: Analysis }) {
   const h = a.headings;
-  const levels = (["h1", "h2", "h3", "h4", "h5", "h6"] as const).map(
-    (l) => [l.toUpperCase(), h[l]] as const,
-  );
-  const max = Math.max(1, ...levels.map(([, n]) => n));
   return (
     <div className="grid gap-12 lg:grid-cols-12">
       <div className="lg:col-span-5">
         <Section title="Heading structure">
-          <ul className="space-y-3">
-            {levels.map(([l, n]) => (
-              <li
-                key={l}
-                className="grid grid-cols-[2.5rem_1fr_2rem] items-center gap-3 text-sm"
-              >
-                <span className="eyebrow">{l}</span>
-                <span className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <span
-                    className="block h-full bg-primary/70 rounded-full"
-                    style={{ width: `${(n / max) * 100}%` }}
-                  />
-                </span>
-                <span
-                  className={`tabular-nums text-right ${l === "H1" && n !== 1 ? "text-warning" : ""}`}
-                >
-                  {n}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <HeadingChart headings={h} />
           {h.h1Texts.length > 0 && (
             <div className="mt-6">
               <div className="eyebrow mb-2">H1 text</div>
@@ -569,7 +501,10 @@ function Content({ a }: { a: Analysis }) {
       </div>
       <div className="lg:col-span-7">
         <Section title={`Keywords · ${a.keywords.length}`}>
-          <Keywords a={a} />
+          <KeywordChart keywords={a.keywords} limit={10} height={240} />
+          <div className="mt-6">
+            <Keywords a={a} />
+          </div>
         </Section>
       </div>
     </div>
