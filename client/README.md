@@ -1,74 +1,28 @@
-# SEO Rank Tracker
+# RankPilot client
 
-**SEO Rank Tracker** is an AI-powered SEO analyzer built with React, Vite, and Tailwind CSS. It provides instant SEO audits, performance scores, keyword analysis, and actionable recommendations for any website.
-
-## Features
-
-- **Instant SEO Audits:** Get comprehensive insights into your website's SEO performance.
-- **Performance Scores:** Analyze page speed and Core Web Vitals.
-- **Keyword Analysis:** Discover and optimize for relevant keywords.
-- **Actionable Recommendations:** Receive step-by-step guidance to improve your rankings.
-- **AI-Powered Insights:** Leverage AI to analyze content quality and structure.
-
-## Tech Stack
-
-- **Frontend:** React 19, React Router, Tailwind CSS 4
-- **Icons:** Lucide React, React Simple Icons
-- **Build Tool:** Vite
-- **Language:** TypeScript
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v18 or higher recommended)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/GreatStackDev/seo-rank-tracker.git
-    ```
-2. Navigate to the project directory:
-    ```bash
-    cd seo-rank-tracker
-    ```
-3. Install dependencies:
-    ```bash
-    npm install
-    ```
-
-### Running the Development Server
-
-Start the Vite development server:
+React 19 + Vite + Tailwind 4 + GSAP.
 
 ```bash
-npm run dev
+cp .env.example .env      # VITE_BACKEND_URL
+npm install
+npm run dev               # http://localhost:5173
+npm run build             # type-check + production build
+npm run lint
 ```
 
-### Building for Production
+## Layout
 
-Create a production build:
+- `src/pages` — one file per route
+- `src/components/ui` — primitives: Button, Container, Reveal, Gauge, Logo
+- `src/components/app` — product pieces: PageHeader, StatTile, UrlForm, AnalysisRow, RankChart…
+- `src/components/home` — landing sections
+- `src/lib/gsap.ts` — GSAP registration, shared eases and the scoped `useGsap` hook
+- `src/index.css` — design tokens (fonts, colors, eases, display type scale) and both themes
+- `src/types/api.ts` — API shapes, mirrored in `server/src/types/api.ts`
 
-```bash
-npm run build
-```
+## Motion rules used here
 
-To preview the production build locally:
-
-```bash
-npm run preview
-```
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more details.
-
-## Code of Conduct
-
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in our community.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+- Only `transform` and `opacity` are animated, except deliberate height tweens on accordions.
+- Landing: hero copy and product mockup animate on load; scroll reveals fire once and only on a few sections.
+- Product pages: no scroll animation; entrances are short and interruptible.
+- `prefers-reduced-motion` keeps fades and drops movement (see the end of `index.css` and `prefersReducedMotion()`).
