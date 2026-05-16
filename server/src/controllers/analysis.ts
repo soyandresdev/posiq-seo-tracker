@@ -4,6 +4,7 @@ import { User } from "../models/User.ts";
 import { analyzeSeoData } from "../services/gemini.ts";
 import { scrapeUrl } from "../services/scraper.ts";
 import { consumeAnalysis } from "../services/plan.ts";
+import { runChecks } from "../services/checks.ts";
 import type { AnalysisDoc } from "../models/Analysis.ts";
 
 function parseUrl(raw: unknown): URL | null {
@@ -20,11 +21,14 @@ async function runAnalysis(analysis: AnalysisDoc) {
     try {
         const scraped = await scrapeUrl(analysis.url);
         if (!scraped.success) throw new Error(scraped.error);
-        const ai = await analyzeSeoData(scraped.data);
+        const checks = runChecks(scraped.data);
+        const ai = await analyzeSeoData(scraped.data, checks);
         if (!ai.success) throw new Error(ai.error);
 
         const { data } = scraped;
         analysis.set({
+            summary: ai.data.summary,
+            checks,
             overallScore: ai.data.overallScore,
             categories: ai.data.categories,
             keywords: ai.data.keywords,
@@ -79,7 +83,7 @@ export async function getAnalyses(req: Request, res: Response) {
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
-            .select("-issues -keywords -metaData -headings"),
+            .select("-issues -keywords -metaData -headings -checks -summary"),
         Analysis.countDocuments(filter),
     ]);
 

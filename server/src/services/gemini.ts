@@ -1,12 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { env } from "../config/env.ts";
-import type { AiAnalysis, Result, ScrapedData } from "../types/api.ts";
+import type { AiAnalysis, Check, Result, ScrapedData } from "../types/api.ts";
 
 const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
 const schema = {
     type: Type.OBJECT,
     properties: {
+        summary: { type: Type.STRING },
         overallScore: { type: Type.INTEGER },
         categories: {
             type: Type.OBJECT,
@@ -26,16 +27,20 @@ const schema = {
                     category: { type: Type.STRING },
                     message: { type: Type.STRING },
                     recommendation: { type: Type.STRING },
+                    impact: { type: Type.STRING, format: "enum", enum: ["high", "medium", "low"] },
+                    effort: { type: Type.STRING, format: "enum", enum: ["quick", "medium", "large"] },
+                    snippet: { type: Type.STRING },
                 },
-                required: ["severity", "category", "message", "recommendation"],
+                required: ["severity", "category", "message", "recommendation", "impact", "effort", "snippet"],
             },
         },
     },
-    required: ["overallScore", "categories", "keywords", "issues"],
+    required: ["summary", "overallScore", "categories", "keywords", "issues"],
 };
 
-function buildPrompt(d: ScrapedData) {
+function buildPrompt(d: ScrapedData, checks: Check[]) {
     const m = d.metaData;
+    const checklist = checks.map((c) => `- [${c.passed ? "PASS" : "FAIL"}] ${c.label}: ${c.detail}`).join("\n");
     return `You are an expert SEO analyst. Analyze the following website data and provide a comprehensive SEO audit.
 
 Website URL: ${d.url}
@@ -74,6 +79,9 @@ IMAGES:
 - Missing Alt Text: ${d.images.missingAlt}
 - With Alt Text: ${d.images.withAlt}
 
+AUTOMATED CHECKS (already verified, use them as ground truth):
+${checklist}
+
 PAGE CONTENT (first 3000 chars):
 ${d.bodyText}
 
@@ -92,21 +100,25 @@ Scoring guidelines:
 
 Severity levels must be exactly one of: "critical", "warning", or "info".
 Provide 5-15 issues sorted by severity (critical first). Be specific and actionable with recommendations.
+For each issue set impact (high/medium/low: effect on rankings and users) and effort (quick: under 30 minutes, medium: a few hours, large: a project).
+When a fix is a concrete tag or attribute, put the exact code to paste in "snippet" (for example a complete <meta> or <title> tag written for this page); otherwise leave snippet empty.
+Write "summary" as 2-3 plain sentences for the site owner: overall state, the single most important problem, and what to do first. No markdown.
 Extract top 10 keywords by frequency from the page content.`;
 }
 
 const clamp = (n: unknown) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 
 /** Score scraped data with Gemini using a strict JSON schema. */
-export async function analyzeSeoData(data: ScrapedData): Promise<Result<AiAnalysis>> {
+export async function analyzeSeoData(data: ScrapedData, checks: Check[] = []): Promise<Result<AiAnalysis>> {
     try {
         const response = await ai.models.generateContent({
             model: env.geminiModel,
-            contents: [{ role: "user", parts: [{ text: buildPrompt(data) }] }],
+            contents: [{ role: "user", parts: [{ text: buildPrompt(data, checks) }] }],
             config: { responseMimeType: "application/json", responseSchema: schema },
         });
         const raw = JSON.parse(response.text ?? "{}") as Partial<AiAnalysis>;
         const analysis: AiAnalysis = {
+            summary: String(raw.summary ?? "").trim(),
             overallScore: clamp(raw.overallScore),
             categories: {
                 seo: clamp(raw.categories?.seo),
@@ -115,7 +127,14 @@ export async function analyzeSeoData(data: ScrapedData): Promise<Result<AiAnalys
                 bestPractices: clamp(raw.categories?.bestPractices),
             },
             keywords: (raw.keywords ?? []).slice(0, 15),
-            issues: (raw.issues ?? []).filter((i) => ["critical", "warning", "info"].includes(i.severity)),
+            issues: (raw.issues ?? [])
+                .filter((i) => ["critical", "warning", "info"].includes(i.severity))
+                .map((i) => ({
+                    ...i,
+                    impact: ["high", "medium", "low"].includes(i.impact) ? i.impact : "medium",
+                    effort: ["quick", "medium", "large"].includes(i.effort) ? i.effort : "medium",
+                    snippet: typeof i.snippet === "string" ? i.snippet.trim() : "",
+                })),
         };
         return { success: true, data: analysis };
     } catch (err) {

@@ -6,6 +6,20 @@ const issueSchema = new Schema(
         category: { type: String, required: true },
         message: { type: String, required: true },
         recommendation: { type: String, required: true },
+        impact: { type: String, enum: ["high", "medium", "low"], default: "medium" },
+        effort: { type: String, enum: ["quick", "medium", "large"], default: "medium" },
+        snippet: { type: String, default: "" },
+    },
+    { _id: false }
+);
+
+const checkSchema = new Schema(
+    {
+        id: { type: String, required: true },
+        label: { type: String, required: true },
+        category: { type: String, enum: ["seo", "performance", "accessibility", "bestPractices"], required: true },
+        passed: { type: Boolean, required: true },
+        detail: { type: String, default: "" },
     },
     { _id: false }
 );
@@ -14,6 +28,7 @@ const analysisSchema = new Schema(
     {
         userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
         url: { type: String, required: true },
+        summary: { type: String, default: "" },
         overallScore: { type: Number, min: 0, max: 100, default: 0 },
         categories: {
             seo: { type: Number, default: 0 },
@@ -55,6 +70,7 @@ const analysisSchema = new Schema(
         },
         keywords: [{ word: String, count: Number, density: Number }],
         issues: [issueSchema],
+        checks: [checkSchema],
         loadTime: { type: Number, default: 0 },
         pageSize: { type: Number, default: 0 },
         wordCount: { type: Number, default: 0 },

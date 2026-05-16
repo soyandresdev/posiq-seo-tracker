@@ -4,6 +4,9 @@ import { ArrowLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { Button, Container, Gauge } from "../components/ui";
 import IssueCard from "../components/IssueCard";
+import { isQuickWin } from "../lib/issues";
+import Checklist from "../components/app/Checklist";
+import { Sparkles, Zap } from "lucide-react";
 import EmptyState from "../components/app/EmptyState";
 import { Skeleton } from "../components/app/Skeleton";
 import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
@@ -19,6 +22,8 @@ const tabs: { id: Tab; label: string }[] = [
     { id: "issues", label: "Issues" },
 ];
 const severityOrder: Severity[] = ["critical", "warning", "info"];
+const impactOrder = { high: 0, medium: 1, low: 2 } as const;
+const byPriority = (x: Analysis["issues"][number], y: Analysis["issues"][number]) => (impactOrder[x.impact ?? "medium"] - impactOrder[y.impact ?? "medium"]) || (severityOrder.indexOf(x.severity) - severityOrder.indexOf(y.severity));
 
 export default function Report() {
     const { id } = useParams();
@@ -115,6 +120,8 @@ export default function Report() {
                 </dl>
             </section>
 
+            {(a.summary || a.issues.some(isQuickWin)) && <Summary a={a} onSeeAll={() => setTab("issues")} />}
+
             {/* Tabs */}
             <div role="tablist" className="mt-8 inline-flex h-10 p-1 rounded-full bg-muted overflow-x-auto max-w-full">
                 {tabs.map((t) => (
@@ -166,11 +173,57 @@ function Section({ title, children, className = "" }: { title: string; children:
     );
 }
 
+function Summary({ a, onSeeAll }: { a: Analysis; onSeeAll: () => void }) {
+    const wins = a.issues.filter(isQuickWin).slice(0, 3);
+    return (
+        <section className="mt-6 grid gap-6 lg:grid-cols-12">
+            {a.summary && (
+                <div className="lg:col-span-7 card p-6 md:p-8 bg-gradient-to-br from-lavender/80 to-card">
+                    <div className="flex items-center gap-2 text-primary-dark text-sm font-semibold">
+                        <Sparkles size={15} /> Summary
+                    </div>
+                    <p className="mt-3 text-lg leading-relaxed text-pretty">{a.summary}</p>
+                </div>
+            )}
+            {wins.length > 0 && (
+                <div className={`${a.summary ? "lg:col-span-5" : "lg:col-span-12"} card p-6`}>
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                        <span className="size-6 rounded-full bg-lavender text-primary-dark grid place-items-center">
+                            <Zap size={12} strokeWidth={3} />
+                        </span>
+                        Quick wins
+                        <span className="text-muted-foreground font-medium">· high impact, under 30 minutes</span>
+                    </div>
+                    <ol className="mt-4 space-y-3">
+                        {wins.map((w, i) => (
+                            <li key={w.message} className="flex gap-3 text-sm">
+                                <span className="font-heavy text-primary-dark tabular-nums">0{i + 1}</span>
+                                <span>
+                                    <span className="font-semibold">{w.message}</span>
+                                    <span className="block text-muted-foreground text-xs mt-0.5 line-clamp-2">{w.recommendation}</span>
+                                </span>
+                            </li>
+                        ))}
+                    </ol>
+                    <Button variant="link" size="sm" onClick={onSeeAll} className="mt-4">
+                        Open all issues
+                    </Button>
+                </div>
+            )}
+        </section>
+    );
+}
+
 function Overview({ a, counts, onSeeAll }: { a: Analysis; counts: Record<Severity, number>; onSeeAll: () => void }) {
-    const top = [...a.issues].sort((x, y) => severityOrder.indexOf(x.severity) - severityOrder.indexOf(y.severity)).slice(0, 3);
+    const top = [...a.issues].sort(byPriority).slice(0, 3);
     return (
         <div className="grid gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-7 space-y-12">
+                {a.checks && a.checks.length > 0 && (
+                    <Section title="Checklist">
+                        <Checklist checks={a.checks} />
+                    </Section>
+                )}
                 <Section title="Issues">
                     <div className="grid grid-cols-3 rounded-xl bg-muted/60 divide-x divide-border">
                         {severityOrder.map((s) => (
@@ -311,17 +364,26 @@ function Content({ a }: { a: Analysis }) {
 }
 
 function Issues({ a, counts }: { a: Analysis; counts: Record<Severity, number> }) {
-    const [filter, setFilter] = useState<Severity | "all">("all");
-    const list = [...a.issues].filter((i) => filter === "all" || i.severity === filter).sort((x, y) => severityOrder.indexOf(x.severity) - severityOrder.indexOf(y.severity));
+    const [filter, setFilter] = useState<Severity | "all" | "wins">("all");
+    const winCount = a.issues.filter(isQuickWin).length;
+    const list = [...a.issues].filter((i) => filter === "all" || (filter === "wins" ? isQuickWin(i) : i.severity === filter)).sort(byPriority);
     return (
         <div className="max-w-4xl">
-            <div role="tablist" aria-label="Severity" className="inline-flex h-10 p-1 rounded-full bg-muted mb-4">
-                {(["all", ...severityOrder] as const).map((s) => (
-                    <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)} className={`px-3.5 rounded-full text-sm font-medium capitalize transition-colors duration-200 ${filter === s ? "bg-card text-primary-dark shadow-card" : "text-muted-foreground hover:text-foreground"}`}>
-                        {s}
-                        {s !== "all" && <span className="ml-1.5 text-xs tabular-nums opacity-70">{counts[s]}</span>}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                <div role="tablist" aria-label="Severity" className="inline-flex h-10 p-1 rounded-full bg-muted">
+                    {(["all", ...severityOrder] as const).map((s) => (
+                        <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)} className={`px-3.5 rounded-full text-sm font-medium capitalize transition-colors duration-200 ${filter === s ? "bg-card text-primary-dark shadow-card" : "text-muted-foreground hover:text-foreground"}`}>
+                            {s}
+                            {s !== "all" && <span className="ml-1.5 text-xs tabular-nums opacity-70">{counts[s]}</span>}
+                        </button>
+                    ))}
+                </div>
+                {winCount > 0 && (
+                    <button onClick={() => setFilter(filter === "wins" ? "all" : "wins")} aria-pressed={filter === "wins"} className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-sm font-medium transition-colors ${filter === "wins" ? "bg-primary text-white shadow-primary" : "bg-lavender text-primary-dark hover:bg-lavender-deep"}`}>
+                        <Zap size={13} strokeWidth={3} /> Quick wins <span className="text-xs opacity-70 tabular-nums">{winCount}</span>
                     </button>
-                ))}
+                )}
+                <span className="text-xs text-muted-foreground ml-auto">Sorted by impact</span>
             </div>
             {list.length ? <div>{list.map((i, idx) => <IssueCard key={`${filter}-${idx}`} issue={i} />)}</div> : <p className="text-sm text-muted-foreground py-6">Nothing here. Nice.</p>}
         </div>

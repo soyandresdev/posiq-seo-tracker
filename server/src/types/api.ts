@@ -11,11 +11,26 @@ export interface Categories {
     bestPractices: number;
 }
 
+export type Impact = "high" | "medium" | "low";
+export type Effort = "quick" | "medium" | "large";
+
 export interface Issue {
     severity: Severity;
     category: string;
     message: string;
     recommendation: string;
+    impact: Impact;
+    effort: Effort;
+    /** Optional code to paste, e.g. a meta tag. */
+    snippet: string;
+}
+
+export interface Check {
+    id: string;
+    label: string;
+    category: "seo" | "performance" | "accessibility" | "bestPractices";
+    passed: boolean;
+    detail: string;
 }
 
 export interface Keyword {
@@ -61,6 +76,7 @@ export interface ScrapedData {
 }
 
 export interface AiAnalysis {
+    summary: string;
     overallScore: number;
     categories: Categories;
     keywords: Keyword[];
