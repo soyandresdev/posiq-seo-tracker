@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Globe, ImageOff, MoreVertical } from "lucide-react";
 import { hostnameOf, type Analysis } from "../../types/api";
 
@@ -62,6 +63,7 @@ export function SerpPreview({ a }: { a: Analysis }) {
 /** Link card as shown by X, LinkedIn or Slack, from the Open Graph tags. */
 export function SocialPreview({ a }: { a: Analysis }) {
     const m = a.metaData;
+    const [broken, setBroken] = useState(false);
     const title = m.ogTitle || m.title;
     const desc = m.ogDescription || m.description;
     const missing = [!m.ogTitle && "og:title", !m.ogDescription && "og:description", !m.ogImage && "og:image"].filter(Boolean) as string[];
@@ -69,9 +71,9 @@ export function SocialPreview({ a }: { a: Analysis }) {
         <div>
             <div className="rounded-xl overflow-hidden border border-border bg-white max-w-[520px]">
                 <div className="aspect-[1.91/1] bg-muted grid place-items-center overflow-hidden">
-                    {m.ogImage ? <img src={m.ogImage} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" /> : (
-                        <span className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
-                            <ImageOff size={22} /> No og:image
+                    {m.ogImage && !broken ? <img src={m.ogImage} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} /> : (
+                        <span className="flex flex-col items-center gap-2 text-muted-foreground text-xs text-center px-6">
+                            <ImageOff size={22} /> {m.ogImage ? "og:image could not be loaded" : "No og:image"}
                         </span>
                     )}
                 </div>
@@ -81,7 +83,9 @@ export function SocialPreview({ a }: { a: Analysis }) {
                     <div className="text-xs text-muted-foreground line-clamp-2">{desc || "No description"}</div>
                 </div>
             </div>
-            <p className={`mt-3 text-xs ${missing.length ? "text-warning" : "text-success"}`}>{missing.length ? `Missing ${missing.join(", ")}. Shared links will look bare.` : "All Open Graph tags present."}</p>
+            <p className={`mt-3 text-xs ${missing.length || broken ? "text-warning" : "text-success"}`}>
+                {missing.length ? `Missing ${missing.join(", ")}. Shared links will look bare.` : broken ? "og:image is set but the image did not load. Check that the URL is public and absolute." : "All Open Graph tags present."}
+            </p>
         </div>
     );
 }

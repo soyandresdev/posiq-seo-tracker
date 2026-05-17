@@ -29,7 +29,7 @@ export default function RankChart({ history, height = 260 }: Props) {
     return (
         <div style={{ height }} role="img" aria-label={`Position history, best ${best}, worst ${maxPos}`}>
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                     <defs>
                         <linearGradient id="rank-fill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.22} />
