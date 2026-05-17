@@ -28,6 +28,9 @@ const keywordTrackingSchema = new Schema(
         keyword: { type: String, required: true, trim: true, lowercase: true },
         url: { type: String, required: true, trim: true },
         domain: { type: String, required: true },
+        country: { type: String, default: "us" },
+        language: { type: String, default: "en" },
+        lastAlertAt: { type: Date, default: null },
         currentPosition: { type: Number, default: null },
         currentPage: { type: Number, default: null },
         bestPosition: { type: Number, default: null },
@@ -41,7 +44,7 @@ const keywordTrackingSchema = new Schema(
     { timestamps: true }
 );
 
-keywordTrackingSchema.index({ userId: 1, keyword: 1, domain: 1 }, { unique: true });
+keywordTrackingSchema.index({ userId: 1, keyword: 1, domain: 1, country: 1 }, { unique: true });
 
 export type KeywordTrackingShape = InferSchemaType<typeof keywordTrackingSchema>;
 export type KeywordTrackingDoc = HydratedDocument<KeywordTrackingShape>;

@@ -7,10 +7,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Run a rank check for one tracking and persist position, history and competitors. */
 export async function keywordTracking(tracking: KeywordTrackingDoc): Promise<Result<RankCheck>> {
     try {
-        let result = await rankTracker(tracking.keyword, tracking.domain);
+        const locale = { country: tracking.country, language: tracking.language };
+        let result = await rankTracker(tracking.keyword, tracking.domain, locale);
         if (!result.success || result.data.totalResultsScanned === 0) {
             await sleep(result.success ? 3000 : 5000);
-            result = await rankTracker(tracking.keyword, tracking.domain);
+            result = await rankTracker(tracking.keyword, tracking.domain, locale);
         }
 
         if (!result.success) {

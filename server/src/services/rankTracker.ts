@@ -10,7 +10,9 @@ type RawResult = Omit<SerpResult, "position">;
 const sameSite = (domain: string, target: string) => domain.includes(target) || target.includes(domain);
 
 /** Search Google for a keyword and find where the target domain ranks in the first pages. */
-export async function rankTracker(keyword: string, targetDomain: string): Promise<Result<RankCheck>> {
+export type SearchLocale = { country: string; language: string };
+
+export async function rankTracker(keyword: string, targetDomain: string, locale: SearchLocale = { country: "us", language: "en" }): Promise<Result<RankCheck>> {
     let browser: Browser | null = null;
     try {
         const opened = await openPage(45_000);
@@ -33,7 +35,7 @@ export async function rankTracker(keyword: string, targetDomain: string): Promis
         let found = null as (SerpResult & { page: number }) | null;
 
         for (let g = 0; g < PAGES && !found; g += 1) {
-            await page.goto(`https://www.google.com/search?q=${encodeURIComponent(keyword)}&start=${g * RESULTS_PER_PAGE}&num=${RESULTS_PER_PAGE}&hl=en&gl=us`, { waitUntil: "networkidle" });
+            await page.goto(`https://www.google.com/search?q=${encodeURIComponent(keyword)}&start=${g * RESULTS_PER_PAGE}&num=${RESULTS_PER_PAGE}&hl=${locale.language}&gl=${locale.country}`, { waitUntil: "networkidle" });
 
             let results: RawResult[] = [];
             for (let retry = 0; retry < 3 && !results.length; retry += 1) {

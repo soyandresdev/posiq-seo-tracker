@@ -100,6 +100,8 @@ export interface KeywordTracking {
     keyword: string;
     url: string;
     domain: string;
+    country?: string;
+    language?: string;
     currentPosition: number | null;
     currentPage: number | null;
     bestPosition: number | null;
