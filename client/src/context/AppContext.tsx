@@ -17,6 +17,7 @@ export interface User {
   email: string;
   plan: "free" | "pro";
   analysisCount?: number;
+  alerts?: { rankDrop: boolean; dropThreshold: number; analysisDone: boolean };
 }
 
 type Result = { success: boolean; message?: string };
@@ -29,7 +30,13 @@ interface AppContextValue {
   login: (email: string, password: string) => Promise<Result>;
   register: (name: string, email: string, password: string) => Promise<Result>;
   logout: () => void;
+  updateSettings: (patch: SettingsPatch) => Promise<Result>;
 }
+
+type SettingsPatch = {
+  name?: string;
+  alerts?: Partial<NonNullable<User["alerts"]>>;
+};
 
 const TOKEN_KEY = "token";
 
@@ -133,6 +140,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [api, persistSession],
   );
 
+  const updateSettings = useCallback(
+    async (patch: SettingsPatch): Promise<Result> => {
+      try {
+        const { data } = await api.patch("/api/auth/settings", patch);
+        if (data.success) {
+          setUser(data.user);
+          return { success: true };
+        }
+        return { success: false, message: data.message };
+      } catch (error) {
+        return {
+          success: false,
+          message: errorMessage(error, "Could not save"),
+        };
+      }
+    },
+    [api],
+  );
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
@@ -140,8 +166,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, loading, api, login, register, logout }),
-    [user, token, loading, api, login, register, logout],
+    () => ({
+      user,
+      token,
+      loading,
+      api,
+      login,
+      register,
+      logout,
+      updateSettings,
+    }),
+    [user, token, loading, api, login, register, logout, updateSettings],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

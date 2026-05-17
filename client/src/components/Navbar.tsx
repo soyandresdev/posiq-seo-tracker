@@ -64,10 +64,10 @@ export default function Navbar() {
                     <div className="hidden md:flex items-center gap-2">
                         {user ? (
                             <>
-                                <span className="hidden lg:inline-flex items-center gap-2 pl-1 pr-3 h-9 rounded-full bg-muted text-sm font-medium">
+                                <NavLink to="/settings" className="hidden lg:inline-flex items-center gap-2 pl-1 pr-3 h-9 rounded-full bg-muted text-sm font-medium hover:bg-lavender transition-colors" aria-label="Settings">
                                     <span className="size-7 rounded-full bg-primary text-white grid place-items-center text-xs font-bold">{user.name.charAt(0).toUpperCase()}</span>
                                     {user.name.split(" ")[0]}
-                                </span>
+                                </NavLink>
                                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                                     Log out
                                 </Button>

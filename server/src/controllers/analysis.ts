@@ -5,6 +5,7 @@ import { analyzeSeoData } from "../services/gemini.ts";
 import { scrapeUrl } from "../services/scraper.ts";
 import { consumeAnalysis } from "../services/plan.ts";
 import { runChecks } from "../services/checks.ts";
+import { analysisDoneEmail } from "../services/email.ts";
 import type { AnalysisDoc } from "../models/Analysis.ts";
 
 function parseUrl(raw: unknown): URL | null {
@@ -43,6 +44,10 @@ async function runAnalysis(analysis: AnalysisDoc) {
             status: "completed",
         });
         await analysis.save();
+        const owner = await User.findById(analysis.userId).select("email alerts");
+        if (owner?.alerts?.analysisDone) {
+            await analysisDoneEmail({ to: owner.email, host: new URL(analysis.url).hostname, score: analysis.overallScore, issues: analysis.issues.length, analysisId: analysis._id.toString() }).catch(() => undefined);
+        }
     } catch (err) {
         console.error("[analysis] background job failed:", (err as Error).message);
         analysis.status = "failed";

@@ -1,5 +1,7 @@
 import type { KeywordTrackingDoc } from "../models/KeywordTracking.ts";
 import { rankTracker } from "./rankTracker.ts";
+import { User } from "../models/User.ts";
+import { rankDropEmail } from "./email.ts";
 import type { RankCheck, Result } from "../types/api.ts";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -39,6 +41,7 @@ export async function keywordTracking(tracking: KeywordTrackingDoc): Promise<Res
         else tracking.rankHistory.push(entry);
 
         await tracking.save();
+        void maybeAlert(tracking, prev);
         return result;
     } catch (err) {
         const message = (err as Error).message;
@@ -46,5 +49,25 @@ export async function keywordTracking(tracking: KeywordTrackingDoc): Promise<Res
         tracking.status = "failed";
         await tracking.save().catch(() => undefined);
         return { success: false, error: message };
+    }
+}
+
+/** Email the owner when a keyword drops by their threshold or leaves the top 50. At most one alert per keyword per day. */
+async function maybeAlert(tracking: KeywordTrackingDoc, prev: number | null | undefined) {
+    try {
+        if (!prev) return;
+        const now = tracking.currentPosition ?? null;
+        const user = await User.findById(tracking.userId).select("email alerts");
+        if (!user?.alerts?.rankDrop) return;
+        const threshold = user.alerts.dropThreshold ?? 3;
+        const dropped = now === null || now - prev >= threshold;
+        if (!dropped) return;
+        const today = new Date().toDateString();
+        if (tracking.lastAlertAt && tracking.lastAlertAt.toDateString() === today) return;
+        await rankDropEmail({ to: user.email, keyword: tracking.keyword, domain: tracking.domain, from: prev, to_: now, trackingId: tracking._id.toString() });
+        tracking.lastAlertAt = new Date();
+        await tracking.save();
+    } catch (err) {
+        console.error("[alerts] failed:", (err as Error).message);
     }
 }

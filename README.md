@@ -73,8 +73,16 @@ All routes except register/login require `Authorization: Bearer <jwt>`.
 | GET | `/api/rank/list` `/api/rank/:id` | list (no history) / detail with history |
 | POST | `/api/rank/:id/refresh` | `409` if a check is already running |
 | PUT | `/api/rank/:id/toggle` | pause or resume |
+| POST | `/api/rank/bulk` | up to 50 keywords at once |
+| GET | `/api/rank/locales` | supported countries and languages |
+| PATCH | `/api/auth/settings` | name and alert preferences |
+| GET / POST / DELETE | `/api/analysis/:id/chat` | report assistant (SSE on POST) |
 | DELETE | `/api/rank/:id` | |
 | GET | `/api/cron/rank-check` | scheduler trigger, needs `Authorization: Bearer $CRON_SECRET` |
+
+## Email alerts
+
+Users can turn on alerts in Settings: a ranking drop beyond their threshold (or leaving the top 50), and a report-ready email. Sending goes through Resend's HTTP API when `RESEND_API_KEY` and `EMAIL_FROM` are set; otherwise the server logs the message instead of sending it. `APP_URL` is used for the links inside the emails.
 
 ## Scheduling rank checks
 

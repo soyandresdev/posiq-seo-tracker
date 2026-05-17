@@ -12,6 +12,7 @@ import Report from "./pages/Report";
 import History from "./pages/History";
 import RankTracker from "./pages/RankTracker";
 import RankDetail from "./pages/RankDetail";
+import Settings from "./pages/Settings";
 import { useApp } from "./context/AppContext";
 import { gsap, prefersReducedMotion } from "./lib/gsap";
 
@@ -55,6 +56,7 @@ export default function App() {
                         <Route path="/history" element={<History />} />
                         <Route path="/rank-tracker" element={<RankTracker />} />
                         <Route path="/rank/:id" element={<RankDetail />} />
+                        <Route path="/settings" element={<Settings />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

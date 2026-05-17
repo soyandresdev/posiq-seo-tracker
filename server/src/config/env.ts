@@ -18,6 +18,10 @@ export const env = {
     port: Number(process.env.PORT ?? 5050),
     isVercel: Boolean(process.env.VERCEL),
     corsOrigin: process.env.CORS_ORIGIN ?? "*",
+    /** Optional: email alerts through Resend. */
+    resendKey: process.env.RESEND_API_KEY ?? "",
+    emailFrom: process.env.EMAIL_FROM ?? "RankPilot <alerts@rankpilot.dev>",
+    appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/$/, ""),
 } as const;
 
 export const FREE_DAILY_LIMIT = 5;
