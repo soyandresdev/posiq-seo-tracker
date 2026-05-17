@@ -153,3 +153,16 @@ export function normalizeUrl(raw: string) {
     const v = raw.trim();
     return v.startsWith("http") ? v : `https://${v}`;
 }
+
+export interface DashboardSummary {
+    totals: { analyses: number; completed: number; failed: number; processing: number; thisWeek: number; domains: number };
+    avgScore: number | null;
+    best: { id: string; host: string; score: number } | null;
+    worst: { id: string; host: string; score: number } | null;
+    series: { date: string; score: number | null; analyses: number }[];
+    categories: Categories;
+    domains: { domain: string; analyses: number; latestId: string; latestScore: number; previousScore: number | null; change: number | null; lastAnalyzed: string; openIssues: number }[];
+    recurring: { id: string; label: string; count: number }[];
+    severity: { critical: number; warning: number; info: number };
+    rank: RankSummary;
+}

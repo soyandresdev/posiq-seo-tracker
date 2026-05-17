@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { auth } from "../middleware/auth.ts";
 import { wrap } from "../middleware/errors.ts";
-import { analyzeUrl, deleteAnalysis, getAnalyses, getAnalysis } from "../controllers/analysis.ts";
+import { analyzeUrl, deleteAnalysis, getAnalyses, getAnalysis, getAnalysisSummary } from "../controllers/analysis.ts";
 import { clearChat, getChat, postChat } from "../controllers/chat.ts";
 
 export const analysisRouter = Router();
 analysisRouter.use(auth);
 analysisRouter.post("/analyze", wrap(analyzeUrl));
 analysisRouter.get("/list", wrap(getAnalyses));
+analysisRouter.get("/summary", wrap(getAnalysisSummary));
 analysisRouter.get("/:id", wrap(getAnalysis));
 analysisRouter.delete("/:id", wrap(deleteAnalysis));
 analysisRouter.get("/:id/chat", wrap(getChat));

@@ -6,6 +6,8 @@ import { scrapeUrl } from "../services/scraper.ts";
 import { consumeAnalysis } from "../services/plan.ts";
 import { runChecks } from "../services/checks.ts";
 import { analysisDoneEmail } from "../services/email.ts";
+import { KeywordTracking } from "../models/KeywordTracking.ts";
+import { buildAnalysisSummary } from "../services/analysisSummary.ts";
 import type { AnalysisDoc } from "../models/Analysis.ts";
 
 function parseUrl(raw: unknown): URL | null {
@@ -99,4 +101,9 @@ export async function deleteAnalysis(req: Request, res: Response) {
     const deleted = await Analysis.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!deleted) return res.status(404).json({ success: false, message: "Analysis not found" });
     res.json({ success: true, message: "Analysis deleted" });
+}
+
+export async function getAnalysisSummary(req: Request, res: Response) {
+    const [analyses, trackings] = await Promise.all([Analysis.find({ userId: req.userId }).select("-metaData -headings -keywords -links -images"), KeywordTracking.find({ userId: req.userId })]);
+    res.json({ success: true, summary: buildAnalysisSummary(analyses, trackings) });
 }
