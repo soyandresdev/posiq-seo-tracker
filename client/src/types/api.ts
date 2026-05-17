@@ -113,6 +113,30 @@ export interface KeywordTracking {
     status: TrackingStatus;
     createdAt: string;
     updatedAt: string;
+    /** Present on list responses only. */
+    spark?: (number | null)[];
+    rankingTitle?: string;
+    checks?: number;
+}
+
+export interface RankSummary {
+    totals: { tracked: number; active: number; paused: number; checking: number; failed: number };
+    visibility: number;
+    visibilityChange: number | null;
+    avgPosition: number | null;
+    series: { date: string; visibility: number | null; avgPosition: number | null; tracked: number }[];
+    distribution: { top3: number; top10: number; top20: number; top50: number; notFound: number; pending: number };
+    movers: { up: Mover[]; down: Mover[] };
+    competitors: { domain: string; keywords: number; avgPosition: number }[];
+    status: { lastRun: string | null; nextRun: string; okToday: number; failedToday: number };
+}
+
+export interface Mover {
+    id: string;
+    keyword: string;
+    country?: string;
+    position: number | null;
+    change: number;
 }
 
 /** Hostname for display, falling back to the raw string. */

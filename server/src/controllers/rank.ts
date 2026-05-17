@@ -2,6 +2,9 @@ import type { Request, Response } from "express";
 import { KeywordTracking } from "../models/KeywordTracking.ts";
 import { keywordTracking } from "../services/keywordTracking.ts";
 import { isCountry, isLanguage, type CountryCode, type LanguageCode } from "../config/locales.ts";
+import { buildSummary } from "../services/rankSummary.ts";
+
+const SPARK_DAYS = 14;
 
 const BULK_MAX = 50;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -69,9 +72,21 @@ export async function addKeywordsBulk(req: Request, res: Response) {
     })();
 }
 
+/** List with a 14-day sparkline and the URL Google actually ranked, without the full history. */
 export async function getKeywords(req: Request, res: Response) {
-    const keywords = await KeywordTracking.find({ userId: req.userId }).sort({ createdAt: -1 }).select("-rankHistory");
+    const docs = await KeywordTracking.find({ userId: req.userId }).sort({ createdAt: -1 });
+    const keywords = docs.map((t) => {
+        const { rankHistory, ...rest } = t.toObject();
+        const recent = rankHistory.slice(-SPARK_DAYS);
+        const last = rankHistory[rankHistory.length - 1];
+        return { ...rest, spark: recent.map((h) => h.position ?? null), rankingTitle: last?.title ?? "", checks: rankHistory.length };
+    });
     res.json({ success: true, keywords });
+}
+
+export async function getSummary(req: Request, res: Response) {
+    const trackings = await KeywordTracking.find({ userId: req.userId });
+    res.json({ success: true, summary: buildSummary(trackings) });
 }
 
 export async function getKeyword(req: Request, res: Response) {

@@ -14,17 +14,22 @@ import toast from "react-hot-toast";
 import { useApp } from "../context/AppContext";
 import { Button, Container } from "../components/ui";
 import PageHeader from "../components/app/PageHeader";
-import StatTile from "../components/app/StatTile";
 import EmptyState from "../components/app/EmptyState";
 import PositionBadge from "../components/app/PositionBadge";
 import { RowSkeleton } from "../components/app/Skeleton";
 import { gsap, useGsap, prefersReducedMotion } from "../lib/gsap";
 import { formatDate } from "../lib/format";
 import { COUNTRIES, LANGUAGES, flag } from "../lib/locales";
+import RankOverview, {
+  RankOverviewSkeleton,
+} from "../components/app/RankOverview";
+import Sparkline from "../components/charts/Sparkline";
+import type { RankSummary } from "../types/api";
 import type { KeywordTracking } from "../types/api";
 
 type Item = Omit<KeywordTracking, "rankHistory">;
 type Filter = "all" | "active" | "paused";
+type Range = "all" | "top10" | "page2" | "notFound" | "up" | "down";
 type Sort = "newest" | "position" | "gain";
 
 export default function RankTracker() {
@@ -34,6 +39,10 @@ export default function RankTracker() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("newest");
+  const [range, setRange] = useState<Range>("all");
+  const [country, setCountry] = useState("all");
+  const [summary, setSummary] = useState<RankSummary | null>(null);
+  const [summaryKey, setSummaryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +60,19 @@ export default function RankTracker() {
   }, [api]);
 
   // Poll anything that is still checking
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/api/rank/summary")
+      .then(({ data }) => {
+        if (!cancelled && data.success) setSummary(data.summary);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [api, summaryKey]);
+
   const checking = useMemo(
     () =>
       (items ?? []).filter((k) => k.status === "checking").map((k) => k._id),
@@ -68,6 +90,7 @@ export default function RankTracker() {
             setItems(
               (prev) => prev?.map((k) => (k._id === id ? rest : k)) ?? prev,
             );
+            setSummaryKey((n) => n + 1);
           }
         } catch {
           /* keep polling */
@@ -119,6 +142,18 @@ export default function RankTracker() {
       );
     if (filter !== "all")
       list = list.filter((k) => (filter === "active" ? k.active : !k.active));
+    if (country !== "all")
+      list = list.filter((k) => (k.country ?? "us") === country);
+    if (range !== "all") {
+      const by: Record<Exclude<Range, "all">, (k: Item) => boolean> = {
+        top10: (k) => k.currentPosition !== null && k.currentPosition <= 10,
+        page2: (k) => k.currentPosition !== null && k.currentPosition > 10,
+        notFound: (k) => k.lastChecked !== null && k.currentPosition === null,
+        up: (k) => k.positionChange > 0,
+        down: (k) => k.positionChange < 0,
+      };
+      list = list.filter(by[range]);
+    }
     const by: Record<Sort, (a: Item, b: Item) => number> = {
       newest: (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
       position: (a, b) =>
@@ -126,16 +161,13 @@ export default function RankTracker() {
       gain: (a, b) => b.positionChange - a.positionChange,
     };
     return [...list].sort(by[sort]);
-  }, [items, q, filter, sort]);
+  }, [items, q, filter, sort, range, country]);
 
+  const countries = useMemo(
+    () => [...new Set((items ?? []).map((k) => k.country ?? "us"))].sort(),
+    [items],
+  );
   const all = items ?? [];
-  const ranked = all.filter((k) => k.currentPosition !== null);
-  const avg = ranked.length
-    ? Math.round(
-        ranked.reduce((s, k) => s + (k.currentPosition as number), 0) /
-          ranked.length,
-      )
-    : 0;
 
   return (
     <Container size="wide" as="main" className="pt-28 pb-24">
@@ -166,19 +198,12 @@ export default function RankTracker() {
         }}
       />
 
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatTile label="Tracked" value={all.length} />
-        <StatTile
-          label="On page 1"
-          accent="blue"
-          value={all.filter((k) => k.currentPage === 1).length}
-        />
-        <StatTile label="Avg position" value={avg} />
-        <StatTile
-          label="Improved"
-          value={all.filter((k) => k.positionChange > 0).length}
-          hint="since last check"
-        />
+      <div className="mt-6">
+        {summary ? (
+          <RankOverview s={summary} />
+        ) : items && items.length === 0 ? null : (
+          <RankOverviewSkeleton />
+        )}
       </div>
 
       <div className="mt-8 flex flex-col md:flex-row md:items-center gap-3">
@@ -214,6 +239,34 @@ export default function RankTracker() {
           <option value="position">Best position</option>
           <option value="gain">Biggest gain</option>
         </select>
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value as Range)}
+          aria-label="Position range"
+          className="select-pill"
+        >
+          <option value="all">Any position</option>
+          <option value="top10">Top 10</option>
+          <option value="page2">Page 2 and beyond</option>
+          <option value="notFound">Not found</option>
+          <option value="up">Moved up</option>
+          <option value="down">Dropped</option>
+        </select>
+        {countries.length > 1 && (
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            aria-label="Country"
+            className="select-pill"
+          >
+            <option value="all">All countries</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>
+                {flag(c)} {c.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="mt-6">
@@ -471,7 +524,7 @@ function Row({
   const checking = k.status === "checking";
   return (
     <div
-      className={`group grid grid-cols-[1fr_auto] md:grid-cols-[1.4fr_auto_auto_auto_auto] items-center gap-4 md:gap-8 p-4 md:px-5 transition-[background-color,opacity] duration-200 hover:bg-lavender/30 ${k.active ? "" : "opacity-60"}`}
+      className={`group grid grid-cols-[1fr_auto] md:grid-cols-[1.4fr_auto_auto_auto_auto_auto] items-center gap-4 md:gap-8 p-4 md:px-5 transition-[background-color,opacity] duration-200 hover:bg-lavender/30 ${k.active ? "" : "opacity-60"}`}
     >
       <Link to={`/rank/${k._id}`} className="min-w-0">
         <div className="flex items-center gap-2">
@@ -499,12 +552,20 @@ function Row({
             </>
           )}
           {!k.active && " · paused"}
+          {k.rankingTitle && (
+            <span className="block truncate max-w-[52ch] text-muted-foreground/80">
+              Google shows: “{k.rankingTitle}”
+            </span>
+          )}
           {k.status === "failed" && (
             <span className="text-danger"> · last check failed</span>
           )}
         </div>
       </Link>
 
+      <div className="hidden md:block">
+        {k.spark && <Sparkline values={k.spark} />}
+      </div>
       <div className="justify-self-end md:justify-self-start">
         {checking ? (
           <span className="eyebrow animate-pulse">Checking…</span>
