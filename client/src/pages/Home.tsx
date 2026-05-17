@@ -1,5 +1,4 @@
 import Hero from "../components/home/Hero";
-import LogoStrip from "../components/home/LogoStrip";
 import Features from "../components/home/Features";
 import Benefits from "../components/home/Benefits";
 import HowItWorks from "../components/home/HowItWorks";
@@ -12,7 +11,6 @@ export default function Home() {
     return (
         <main>
             <Hero />
-            <LogoStrip />
             <Features />
             <Benefits />
             <HowItWorks />
