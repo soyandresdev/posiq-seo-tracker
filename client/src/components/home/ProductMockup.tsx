@@ -146,7 +146,7 @@ export default function ProductMockup() {
             <span className="size-2.5 rounded-full bg-[#28c840]" />
           </div>
           <div className="mx-auto h-6 w-72 max-w-[50%] rounded-md bg-card border border-border text-[11px] text-muted-foreground grid place-items-center">
-            app.rankpilot.dev/dashboard
+            app.posiq.dev/dashboard
           </div>
         </div>
         <div className="flex items-center justify-between px-5 h-14">

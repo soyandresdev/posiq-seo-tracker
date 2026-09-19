@@ -2,13 +2,13 @@
 
 <img src="client/public/favicon.svg" alt="" width="64" height="64" />
 
-# RankPilot
+# Posiq
 
 ### Know where you rank. Fix what holds you back.
 
 AI SEO audits and daily Google rank tracking, self-hosted.<br/>
 A real browser renders your page, 20 checks and Gemini grade it, an assistant explains what to fix,<br/>
-and every morning RankPilot checks your positions on Google in your market.
+and every morning Posiq checks your positions on Google in your market.
 
 [Features](#-features) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Configuration](#%EF%B8%8F-configuration) · [API](#-api) · [Deployment](#-deployment)
 
@@ -23,7 +23,7 @@ and every morning RankPilot checks your positions on Google in your market.
 
 <br/>
 
-<img src="docs/screenshots/landing.png" alt="RankPilot landing page" width="100%" />
+<img src="docs/screenshots/landing.png" alt="Posiq landing page" width="100%" />
 
 </div>
 
@@ -123,7 +123,7 @@ Ask what to fix first, get a meta description written to length, or alt text for
 
 ### Rank tracking in your market
 
-Track keywords per country and language, add them one at a time or import up to 50 at once. Every morning RankPilot searches Google, scans up to five result pages, and records your position, the page that ranks, the title Google shows, and who ranks above you.
+Track keywords per country and language, add them one at a time or import up to 50 at once. Every morning Posiq searches Google, scans up to five result pages, and records your position, the page that ranks, the title Google shows, and who ranks above you.
 
 <img src="docs/screenshots/rank-tracker.png" alt="Rank tracker overview" width="100%" />
 
@@ -213,7 +213,7 @@ You need two API keys that cannot run locally: [Browserbase](https://www.browser
 ### With Docker (recommended)
 
 ```bash
-git clone https://github.com/soyandresdev/seo-rank-tracker.git && cd seo-rank-tracker
+git clone https://github.com/soyandresdev/posiq-seo-tracker.git && cd posiq-seo-tracker
 ./scripts/setup-env.sh          # creates .env and generates JWT_SECRET
 # edit .env and set BROWSERBASE_API_KEY and GEMINI_API_KEY
 docker compose up --build

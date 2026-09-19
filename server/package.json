@@ -2,7 +2,7 @@
     "name": "server",
     "version": "2.0.0",
     "private": true,
-    "description": "RankPilot API: SEO analysis, Google rank tracking",
+    "description": "Posiq API: SEO analysis, Google rank tracking",
     "type": "module",
     "engines": {
         "node": ">=22.18"

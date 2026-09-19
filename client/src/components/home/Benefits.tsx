@@ -27,7 +27,7 @@ export default function Benefits() {
     <section className="py-20 md:py-28">
       <Container>
         <SectionHeader
-          tag="Why RankPilot"
+          tag="Why Posiq"
           title={
             <>
               Built to help you <span className="text-primary">grow</span>

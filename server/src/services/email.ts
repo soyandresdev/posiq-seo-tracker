@@ -25,11 +25,11 @@ export async function sendEmail(mail: Mail): Promise<{ sent: boolean }> {
 
 const wrap = (title: string, body: string, cta?: { label: string; url: string }) => `
 <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0f0f23">
-  <div style="font-weight:700;font-size:18px;margin-bottom:24px">RankPilot</div>
+  <div style="font-weight:700;font-size:18px;margin-bottom:24px">Posiq</div>
   <h1 style="font-size:22px;margin:0 0 12px">${title}</h1>
   <div style="font-size:15px;line-height:1.6;color:#3b3b55">${body}</div>
   ${cta ? `<a href="${cta.url}" style="display:inline-block;margin-top:24px;background:#6c5cf6;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px">${cta.label}</a>` : ""}
-  <p style="margin-top:32px;font-size:12px;color:#8a8aa3">You get this because alerts are on in your RankPilot settings.</p>
+  <p style="margin-top:32px;font-size:12px;color:#8a8aa3">You get this because alerts are on in your Posiq settings.</p>
 </div>`;
 
 export function rankDropEmail(opts: { to: string; keyword: string; domain: string; from: number; to_: number | null; trackingId: string }) {

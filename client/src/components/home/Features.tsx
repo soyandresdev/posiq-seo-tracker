@@ -166,13 +166,13 @@ export default function Features() {
                 <span className="size-6 rounded-full bg-lavender text-primary-dark grid place-items-center">
                   <Bell size={12} />
                 </span>
-                RankPilot · just now
+                Posiq · just now
               </div>
               <div className="mt-2 font-semibold">
                 “ai seo audit” dropped to #17
               </div>
               <p className="mt-0.5 text-muted-foreground">
-                rankpilot.app was #14 and is now #17. See the history →
+                posiq.app was #14 and is now #17. See the history →
               </p>
             </div>
           </Card>

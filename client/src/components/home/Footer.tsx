@@ -37,11 +37,11 @@ export default function Footer() {
           aria-hidden
           className="mt-12 -mb-[0.28em] text-center font-heavy leading-none text-[18vw] tracking-tighter text-foreground/[0.04] select-none whitespace-nowrap"
         >
-          RankPilot
+          Posiq
         </div>
         <div className="pt-5 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            © {new Date().getFullYear()} RankPilot. All rights reserved.
+            © {new Date().getFullYear()} Posiq. All rights reserved.
           </span>
           <span className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-success" /> All systems

@@ -18,7 +18,7 @@ app.use((_req, _res, next) => {
     connectDB().then(() => next(), next);
 });
 
-app.get("/", (_req, res) => res.json({ ok: true, service: "rankpilot-api" }));
+app.get("/", (_req, res) => res.json({ ok: true, service: "posiq-api" }));
 app.use("/api/auth", authRouter);
 app.use("/api/analysis", analysisRouter);
 app.use("/api/rank", rankRouter);

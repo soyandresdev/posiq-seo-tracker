@@ -1,7 +1,7 @@
 MIT License
 
 Copyright (c) 2026 SEO Rank Tracker
-Copyright (c) 2026 Andres Hernandez Lozano (RankPilot redesign and extensions)
+Copyright (c) 2026 Andres Hernandez Lozano (Posiq redesign and extensions)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

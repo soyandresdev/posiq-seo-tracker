@@ -1,4 +1,4 @@
-# RankPilot client
+# Posiq client
 
 React 19 + Vite + Tailwind 4 + GSAP.
 
